@@ -1,0 +1,539 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Cairo', sans-serif;
+}
+body {
+    background: url('background.png') fixed;
+    background-size: cover;
+    background-position: center;
+    color: #3e2c1f;
+    min-height: 100vh;
+}
+
+/* Navbar */
+.navbar {
+    background: #fffaf5;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+    padding: 12px 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #ede0cf;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-img {
+    width: 48px;
+    height: 48px;
+    background: #e8d9ca;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.logo-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.site-title {
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: #aa7b4b;
+}
+
+.user-badge {
+    background: #f0e5d8;
+    padding: 8px 18px;
+    border-radius: 40px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.user-badge i {
+    color: #aa7b4b;
+}
+
+/* Container */
+.app-container {
+    max-width: 1400px;
+    margin: 20px auto;
+    padding: 0 24px 40px;
+}
+
+/* Cards */
+.card-modern {
+    background: #ffffffec;
+    backdrop-filter: blur(2px);
+    border-radius: 28px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+    padding: 24px 28px;
+    margin-bottom: 30px;
+    border: 1px solid #f3ebdf;
+    transition: 0.2s;
+}
+
+/* Headings */
+h2 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #8b6946;
+    border-right: 5px solid #dbbc8c;
+    padding-right: 18px;
+    margin-bottom: 20px;
+}
+
+h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #9b7b58;
+    margin: 20px 0 12px 0;
+}
+
+/* Buttons */
+button, .btn-like {
+    background: #e7d9cb;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 50px;
+    font-weight: 600;
+    color: #5d3e24;
+    cursor: pointer;
+    transition: 0.2s;
+    font-size: 0.9rem;
+}
+
+button.primary {
+    background: #c7a86b;
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+button.primary:hover {
+    background: #b28b4a;
+    transform: scale(0.97);
+}
+
+button.danger {
+    background: #f0dbcf;
+    color: #b85c1a;
+}
+
+button.danger:hover {
+    background: #e8caba;
+}
+
+button.success {
+    background: #8fbc8f;
+    color: white;
+}
+
+/* Form inputs */
+input, select, textarea {
+    background: #fefaf5;
+    border: 1px solid #e5d5c2;
+    border-radius: 40px;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    width: 100%;
+    margin-top: 6px;
+    margin-bottom: 12px;
+    outline: none;
+    transition: 0.2s;
+}
+
+input:focus, select:focus {
+    border-color: #c7a86b;
+    box-shadow: 0 0 0 2px #f2e5d6;
+}
+
+/* Grid */
+.grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+}
+
+.grid-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+/* Tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    margin-top: 15px;
+}
+
+th, td {
+    padding: 12px 8px;
+    border-bottom: 1px solid #f0e2d4;
+    text-align: center;
+}
+
+th {
+    background: #f7efe5;
+    font-weight: 700;
+}
+
+/* Cart items */
+.cart-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed #e5cfbb;
+    padding: 10px 0;
+}
+
+.cart-item span:first-child {
+    font-weight: 500;
+}
+
+.cart-item button {
+    padding: 4px 12px;
+    font-size: 0.8rem;
+}
+
+/* Flex utilities */
+.flex-between {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.flex-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 25px;
+}
+
+/* Toast message */
+.toast-msg {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background: #2c5f2d;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 50px;
+    z-index: 2000;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Product card */
+.product-card {
+    background: #fefaf5;
+    border-radius: 20px;
+    padding: 15px;
+    text-align: center;
+    border: 1px solid #ede0cf;
+    transition: 0.2s;
+}
+
+.product-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+}
+
+.product-icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+}
+
+/* Login container with background image */
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-image: url('background.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    position: relative;
+}
+
+/* Dark overlay for better text readability */
+.login-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 0;
+}
+
+.login-card {
+    width: 420px;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+}
+
+/* Menu buttons */
+.menu-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 30px;
+}
+
+.menu-buttons button {
+    background: #f0e5d8;
+    padding: 10px 18px;
+}
+
+.menu-buttons button.active {
+    background: #c7a86b;
+    color: white;
+}
+
+/* Print styles */
+@media print {
+    .navbar, .menu-buttons, button:not(.print-invoice) {
+        display: none;
+    }
+    .card-modern {
+        box-shadow: none;
+        padding: 0;
+    }
+}
+/* الإضافات المطلوبة */
+.home-btn {
+    background: #e7d9cb;
+    padding: 8px 16px;
+    border-radius: 40px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.home-btn:hover {
+    background: #dacbbc;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+button.warning {
+    background: #e6c76e;
+    color: #5d3e24;
+}
+
+.price-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: bold;
+}
+
+.price-wholesale {
+    background: #d4e6f1;
+    color: #2c5f8a;
+}
+
+.price-retail {
+    background: #fdebd0;
+    color: #b85c1a;
+}
+
+.invoice-details {
+    max-width: 500px;
+    margin: 10px auto;
+    text-align: right;
+    background: #fefaf5;
+    padding: 15px;
+    border-radius: 15px;
+}
+
+.permission-group {
+    background: #fefaf5;
+    padding: 15px;
+    border-radius: 15px;
+    margin: 10px 0;
+}
+
+.permission-group label {
+    display: block;
+    margin: 8px 0;
+    cursor: pointer;
+}
+
+.permission-group input[type="checkbox"] {
+    width: auto;
+    margin-left: 10px;
+}
+
+tr.returned-invoice {
+    background: #fdebd0;
+    opacity: 0.8;
+}
+
+.badge-returned {
+    background: #b85c1a;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+}
+
+.badge-normal {
+    background: #8fbc8f;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #f0e5d8;
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+    background: #c7a86b;
+    border-radius: 10px;
+}
+/* زرار الرجوع للرئيسية */
+.home-btn {
+    background: #c7a86b;
+    color: white !important;
+    padding: 8px 20px;
+    border-radius: 40px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-left: 10px;
+    border: 1px solid #b8955a;
+}
+
+.home-btn:hover {
+    background: #b28b4a;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.home-btn i {
+    font-size: 1.1rem;
+}
+
+/* تحسين شكل النافبار ليستوعب الأزرار */
+.navbar {
+    background: #fffaf5;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+    padding: 12px 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #ede0cf;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+/* مجموعة الأزرار في النافبار */
+.navbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* تحسين شكل user-badge */
+.user-badge {
+    background: #f0e5d8;
+    padding: 8px 18px;
+    border-radius: 40px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.user-badge button {
+    margin: 0 5px;
+}
+/* فوتر حقوق الملكية - بسيط */
+.footer {
+    background: #2c3e50;
+    color: #ecf0f1;
+    padding: 15px 0;
+    margin-top: 40px;
+    border-top: 3px solid #c7a86b;
+    text-align: center;
+}
+
+.footer-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.footer-copyright {
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.footer-copyright i {
+    color: #e74c3c;
+    margin: 0 5px;
+}
+
+.footer-copyright .highlight {
+    color: #c7a86b;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin: 0 5px;
+}
+
+.developer-name {
+    color: #c7a86b;
+    font-weight: 700;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.developer-name:hover {
+    color: #f39c12;
+    text-decoration: underline;
+}
