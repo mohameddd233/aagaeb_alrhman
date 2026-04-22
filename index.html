@@ -2128,440 +2128,901 @@ const menuItems = [
         document.getElementById('resetCustBtn')?.addEventListener('click', () => { document.getElementById('searchCust').value = ''; show(customers); });
         show(customers);
     }
-    
-    // ========== دالة فاتورة الشراء (معدلة بالكامل لنظام الدُفعات) ==========
-    function renderPurchase(container) {
-        let purchaseCartHtml = purchaseCart.map((item, idx) => {
-            const status = getExpiryStatus(item.expiryDate);
-            return `<div class="cart-item">
-                <div style="flex:1;">
-                    <strong>${item.name}</strong><br>
-                    <small>الكمية: ${item.qty} | السعر: ${item.price} ج.م</small><br>
-                    <small class="${status.class}">📅 الصلاحية: ${item.expiryDate || 'بدون تاريخ'} ${status.text}</small>
+    function printPurchaseInvoice(invoice) {
+    let win = window.open('', '_blank');
+
+    // تجهيز الصفوف
+    let itemsHtml = invoice.items.map(item => {
+        const status = getExpiryStatus(item.expiryDate);
+        return `
+            <tr>
+                <td>
+                    ${item.name}
+                    ${item.expiryDate ? `<br><small class="${status.class}">📅 ${item.expiryDate}</small>` : ''}
+                </td>
+                <td>${item.qty}</td>
+                <td>${item.price.toFixed(2)}</td>
+                <td>${(item.qty * item.price).toFixed(2)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    // الخصم والضريبة
+    let discountRow = invoice.discountValue ? `
+        <tr>
+            <td colspan="3" style="text-align:left;">💰 خصم (${invoice.discountPercent || 0}%)</td>
+            <td>- ${invoice.discountValue.toFixed(2)} ج.م</td>
+        </tr>` : '';
+
+    let taxRow = invoice.tax ? `
+        <tr>
+            <td colspan="3" style="text-align:left;">📊 ضريبة</td>
+            <td>${invoice.tax.toFixed(2)} ج.م</td>
+        </tr>` : '';
+
+    let changeAmount = invoice.change || (invoice.paid > invoice.total ? invoice.paid - invoice.total : 0);
+
+    win.document.write(`
+        <!DOCTYPE html>
+        <html dir="rtl">
+        <head>
+            <meta charset="UTF-8">
+            <title>فاتورة شراء #${invoice.id}</title>
+            <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+            <style>
+                body {
+                    font-family: 'Cairo', sans-serif;
+                    background: #f5f5f5;
+                    padding: 15px;
+                }
+
+                .invoice-container {
+                    max-width: 400px;
+                    margin: auto;
+                    background: white;
+                    padding: 15px;
+                    border-radius: 10px;
+                    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+                }
+
+                .header {
+                    text-align: center;
+                    border-bottom: 1px dashed #ccc;
+                    padding-bottom: 10px;
+                }
+
+                .header img {
+                    width: 60px;
+                    margin-bottom: 5px;
+                }
+
+                h2 {
+                    margin: 5px 0;
+                }
+
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 10px;
+                    font-size: 12px;
+                }
+
+                th {
+                    background: #2c3e50;
+                    color: white;
+                    padding: 6px;
+                }
+
+                td {
+                    padding: 6px;
+                    border-bottom: 1px solid #eee;
+                    text-align: center;
+                }
+
+                .totals {
+                    margin-top: 10px;
+                    font-size: 13px;
+                }
+
+                .row {
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 4px 0;
+                }
+
+                .final {
+                    font-weight: bold;
+                    font-size: 15px;
+                    border-top: 1px solid #ccc;
+                    padding-top: 5px;
+                }
+
+                .status {
+                    text-align: center;
+                    margin-top: 10px;
+                    padding: 6px;
+                    border-radius: 6px;
+                    font-weight: bold;
+                }
+
+                .paid { background: #d4edda; color: #155724; }
+                .partial { background: #fff3cd; color: #856404; }
+
+                .footer {
+                    text-align: center;
+                    margin-top: 15px;
+                    font-size: 11px;
+                    color: #777;
+                }
+
+                .btns {
+                    text-align: center;
+                    margin-top: 10px;
+                }
+
+                button {
+                    padding: 8px 15px;
+                    border: none;
+                    border-radius: 20px;
+                    cursor: pointer;
+                    margin: 5px;
+                    font-family: 'Cairo';
+                }
+
+                .print { background: #2c3e50; color: white; }
+                .close { background: #e74c3c; color: white; }
+
+                @media print {
+                    body { background: white; }
+                    .btns { display: none; }
+                    .invoice-container { box-shadow: none; }
+                }
+            </style>
+        </head>
+        <body>
+
+            <div class="invoice-container">
+
+                <div class="header">
+                    <img src="logo2.png" onerror="this.style.display='none'">
+                    <div>فاتورة شراء</div>
                 </div>
-                <span style="font-weight:bold; margin:0 10px;">${item.price * item.qty} ج.م</span>
-                <button class="danger removeFromPurchaseCartBtn" data-idx="${idx}">🗑️</button>
+
+                <div class="row"><span>رقم الفاتورة</span><span>#${invoice.id}</span></div>
+                <div class="row"><span>التاريخ</span><span>${invoice.date}</span></div>
+                <div class="row"><span>المورد</span><span>${invoice.supplier}</span></div>
+                <div class="row"><span>الكاشير</span><span>${invoice.createdBy || '-'}</span></div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>الصنف</th>
+                            <th>ك</th>
+                            <th>سعر</th>
+                            <th>إجمالي</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHtml}
+                        ${discountRow}
+                        ${taxRow}
+                    </tbody>
+                </table>
+
+                <div class="totals">
+                    <div class="row">
+                        <span>الإجمالي الفرعي</span>
+                        <span>${invoice.subtotal.toFixed(2)} ج.م</span>
+                    </div>
+
+                    <div class="row final">
+                        <span>الإجمالي النهائي</span>
+                        <span>${invoice.total.toFixed(2)} ج.م</span>
+                    </div>
+
+                    <div class="row">
+                        <span>💳 المدفوع</span>
+                        <span>${(invoice.paid || 0).toFixed(2)}</span>
+                    </div>
+
+                    <div class="row">
+                        <span>⏳ المتبقي</span>
+                        <span>${(invoice.remaining || 0).toFixed(2)}</span>
+                    </div>
+
+                    ${changeAmount > 0 ? `
+                    <div class="row">
+                        <span>💵 الباقي</span>
+                        <span>${changeAmount.toFixed(2)}</span>
+                    </div>` : ''}
+                </div>
+
+                <div class="status ${invoice.remaining > 0 ? 'partial' : 'paid'}">
+                    ${invoice.remaining > 0 ? '💢 دفعة جزئية' : '✅ مدفوع بالكامل'}
+                </div>
+
+                <div class="footer">
+                    🤝 شكراً لتعاملكم معنا
+                </div>
+
+                <div class="btns">
+                    <button class="print" onclick="window.print()">🖨️ طباعة</button>
+                    <button class="close" onclick="window.close()">إغلاق</button>
+                </div>
+
+            </div>
+
+            <script>
+                window.onload = function() {
+                    setTimeout(() => window.print(), 500);
+                };
+            <\/script>
+
+        </body>
+        </html>
+    `);
+
+    win.document.close();
+}
+
+// ========== دالة فاتورة الشراء (معدلة بالكامل لنظام الدُفعات) ==========
+function renderPurchase(container) {
+    let purchaseCartHtml = purchaseCart.map((item, idx) => {
+        const status = getExpiryStatus(item.expiryDate);
+        return `<div class="cart-item">
+            <div style="flex:1;">
+                <strong>${item.name}</strong><br>
+                <small>الكمية: ${item.qty} | السعر: ${item.price} ج.م</small><br>
+                <small class="${status.class}">📅 الصلاحية: ${item.expiryDate || 'بدون تاريخ'} ${status.text}</small>
+            </div>
+            <span style="font-weight:bold; margin:0 10px;">${item.price * item.qty} ج.م</span>
+            <button class="danger removeFromPurchaseCartBtn" data-idx="${idx}">🗑️</button>
+        </div>`;
+    }).join('');
+
+    let subtotal = purchaseCart.reduce((s, i) => s + (i.price * i.qty), 0);
+    let discountValue = subtotal * (purchaseDiscountPercent / 100);
+    let afterDiscount = subtotal - discountValue;
+    let finalTotal = afterDiscount + taxAmount;
+    let remaining = finalTotal - paidAmount;
+
+    container.innerHTML = `
+    <h2>🛒 فاتورة شراء من مورد</h2>
+    <div class="grid-2">
+        <div>
+            <h3>اختر المورد</h3>
+            <select id="supSelect" class="form-select">
+                ${suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+            </select>
+            
+            <div style="margin:20px 0;">
+                <input type="text" id="searchPurchaseProduct" placeholder="🔍 بحث عن منتج..." style="width:100%; padding:10px;">
+            </div>
+
+            <h3>المنتجات</h3>
+            <div class="grid-3" id="purchaseProductsContainer"></div>
+        </div>
+
+        <div>
+            <h3>سلة المشتريات</h3>
+            <div id="purchaseCartItems" style="max-height:350px; overflow-y:auto;">
+                ${purchaseCartHtml || '<p style="text-align:center; color:#999;">🛒 السلة فارغة</p>'}
+            </div>
+
+            ${purchaseCart.length > 0 ? `
+                <div style="margin:15px 0;">
+                    <button class="danger" id="clearPurchaseCartBtn" style="width:100%;">🗑️ تفريغ السلة</button>
+                </div>
+            ` : ''}
+
+            <div class="flex-between" style="margin:15px 0;">
+                <strong>الإجمالي الفرعي:</strong>
+                <strong><span id="purchaseSubtotalDisplay">${subtotal.toFixed(2)}</span> ج.م</strong>
+            </div>
+
+            <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
+                <label>💰 نسبة الخصم (%)</label>
+                <input id="purchaseDiscountInput" type="number" min="0" max="100" step="0.1" value="${purchaseDiscountPercent}">
+                <small>قيمة الخصم: <span id="purchaseDiscountValueDisplay">${discountValue.toFixed(2)}</span> ج.م</small>
+            </div>
+
+            <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
+                <label>💵 الضريبة (ج.م)</label>
+                <input id="purchaseTaxInput" type="number" min="0" step="0.01" value="${taxAmount}">
+            </div>
+
+            <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
+                <label>💳 المدفوع للمورد (ج.م)</label>
+                <input id="purchasePaidInput" type="number" min="0" step="0.01" value="${paidAmount}">
+            </div>
+
+            <div class="flex-between" style="margin:15px 0; padding:10px; background:#e8f5e9; border-radius:10px;">
+                <strong>الإجمالي النهائي:</strong>
+                <strong style="font-size:1.2rem;"><span id="purchaseFinalTotalDisplay">${finalTotal.toFixed(2)}</span> ج.م</strong>
+            </div>
+
+            <div class="flex-between" style="margin:15px 0; padding:10px; background:#fff3e0; border-radius:10px;">
+                <strong>💰 المتبقي للمورد:</strong>
+                <strong><span id="purchaseRemainingDisplay">${remaining.toFixed(2)}</span> ج.م</strong>
+            </div>
+
+            <button class="primary" id="commitPurchaseBtn" ${purchaseCart.length === 0 ? 'disabled' : ''} style="width:100%; padding:15px; font-size:1.1rem;">
+                ✅ تسجيل فاتورة الشراء
+            </button>
+        </div>
+    </div>
+
+    <!-- مودال إضافة منتج للشراء -->
+    <div id="addToPurchaseModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header">
+                <h3 id="modalProductName">إضافة منتج للسلة</h3>
+                <button class="modal-close" onclick="closePurchaseModal()">✕</button>
+            </div>
+            <input type="hidden" id="modalProductId">
+            
+            <div style="margin:20px 0;">
+                <label>الكمية المراد شراؤها</label>
+                <input type="number" id="modalPurchaseQty" min="1" value="1" style="font-size:1.2rem; text-align:center;">
+            </div>
+            
+            <div style="margin:20px 0;">
+                <label>سعر الشراء (ج.م)</label>
+                <input type="number" id="modalPurchasePrice" min="0" step="0.01" style="font-size:1.2rem; text-align:center;">
+            </div>
+            
+            <div style="margin:20px 0;">
+                <label>📅 تاريخ الصلاحية</label>
+                <input type="date" id="modalExpiryDate" style="font-size:1rem;">
+            </div>
+            
+            <div style="display:flex; gap:10px; margin-top:25px;">
+                <button class="primary" id="confirmAddToPurchaseBtn" style="flex:2;">➕ إضافة للسلة</button>
+                <button class="danger" onclick="closePurchaseModal()" style="flex:1;">إلغاء</button>
+            </div>
+        </div>
+    </div>
+    `;
+
+    // دالة إغلاق المودال
+    window.closePurchaseModal = function() {
+        document.getElementById('addToPurchaseModal').style.display = 'none';
+    };
+
+    // عرض المنتجات
+    const renderPurchaseProducts = (search = '') => {
+        const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+        document.getElementById('purchaseProductsContainer').innerHTML = filtered.map(p => {
+            const currentStock = p.batches ? p.batches.reduce((s, b) => s + b.quantity, 0) : (p.stock || 0);
+            return `<div class="product-card">
+                <div class="product-icon">
+                    ${p.image && p.image.startsWith('data:image') ? 
+                        `<img src="${p.image}" style="width:80px;height:80px;object-fit:cover;border-radius:12px;">` : 
+                        `<span style="font-size:50px;">${p.image || '🐾'}</span>`}
+                </div>
+                <div>
+                    <strong>${p.name}</strong><br>
+                    <small>المخزون الحالي: ${currentStock}</small><br>
+                    <small>سعر الجملة: ${p.priceWholesale} ج.م</small><br>
+                    ${p.batches && p.batches.length > 0 ? 
+                        p.batches.slice(0, 2).map(b => {
+                            const status = getExpiryStatus(b.expiryDate);
+                            return `<small class="${status.class}">📅 ${b.expiryDate || '-'} (${b.quantity})</small><br>`;
+                        }).join('') : ''}
+                    <button class="primary openPurchaseModalBtn" data-id="${p.id}" data-name="${p.name}" data-price="${p.priceWholesale}" style="width:100%; margin-top:8px; padding:8px;">
+                        ➕ إضافة للشراء
+                    </button>
+                </div>
             </div>`;
         }).join('');
-
-        let subtotal = purchaseCart.reduce((s, i) => s + (i.price * i.qty), 0);
-        let discountValue = subtotal * (purchaseDiscountPercent / 100);
-        let afterDiscount = subtotal - discountValue;
-        let finalTotal = afterDiscount + taxAmount;
-        let remaining = finalTotal - paidAmount;
-
-        container.innerHTML = `
-        <h2>🛒 فاتورة شراء من مورد</h2>
-        <div class="grid-2">
-            <div>
-                <h3>اختر المورد</h3>
-                <select id="supSelect" class="form-select">
-                    ${suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
-                </select>
-                
-                <div style="margin:20px 0;">
-                    <input type="text" id="searchPurchaseProduct" placeholder="🔍 بحث عن منتج..." style="width:100%; padding:10px;">
-                </div>
-
-                <h3>المنتجات</h3>
-                <div class="grid-3" id="purchaseProductsContainer"></div>
-            </div>
-
-            <div>
-                <h3>سلة المشتريات</h3>
-                <div id="purchaseCartItems" style="max-height:350px; overflow-y:auto;">
-                    ${purchaseCartHtml || '<p style="text-align:center; color:#999;">🛒 السلة فارغة</p>'}
-                </div>
-
-                ${purchaseCart.length > 0 ? `
-                    <div style="margin:15px 0;">
-                        <button class="danger" id="clearPurchaseCartBtn" style="width:100%;">🗑️ تفريغ السلة</button>
-                    </div>
-                ` : ''}
-
-                <div class="flex-between" style="margin:15px 0;">
-                    <strong>الإجمالي الفرعي:</strong>
-                    <strong><span id="purchaseSubtotalDisplay">${subtotal.toFixed(2)}</span> ج.م</strong>
-                </div>
-
-                <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
-                    <label>💰 نسبة الخصم (%)</label>
-                    <input id="purchaseDiscountInput" type="number" min="0" max="100" step="0.1" value="${purchaseDiscountPercent}">
-                    <small>قيمة الخصم: <span id="purchaseDiscountValueDisplay">${discountValue.toFixed(2)}</span> ج.م</small>
-                </div>
-
-                <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
-                    <label>💵 الضريبة (ج.م)</label>
-                    <input id="purchaseTaxInput" type="number" min="0" step="0.01" value="${taxAmount}">
-                </div>
-
-                <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
-                    <label>💳 المدفوع للمورد (ج.م)</label>
-                    <input id="purchasePaidInput" type="number" min="0" step="0.01" value="${paidAmount}">
-                </div>
-
-                <div class="flex-between" style="margin:15px 0; padding:10px; background:#e8f5e9; border-radius:10px;">
-                    <strong>الإجمالي النهائي:</strong>
-                    <strong style="font-size:1.2rem;"><span id="purchaseFinalTotalDisplay">${finalTotal.toFixed(2)}</span> ج.م</strong>
-                </div>
-
-                <div class="flex-between" style="margin:15px 0; padding:10px; background:#fff3e0; border-radius:10px;">
-                    <strong>💰 المتبقي للمورد:</strong>
-                    <strong><span id="purchaseRemainingDisplay">${remaining.toFixed(2)}</span> ج.م</strong>
-                </div>
-
-                <button class="primary" id="commitPurchaseBtn" ${purchaseCart.length === 0 ? 'disabled' : ''} style="width:100%; padding:15px; font-size:1.1rem;">
-                    ✅ تسجيل فاتورة الشراء
-                </button>
-            </div>
-        </div>
-
-        <!-- مودال إضافة منتج للشراء -->
-        <div id="addToPurchaseModal" class="modal-overlay" style="display:none;">
-            <div class="modal-content" style="max-width:500px;">
-                <div class="modal-header">
-                    <h3 id="modalProductName">إضافة منتج للسلة</h3>
-                    <button class="modal-close" onclick="closePurchaseModal()">✕</button>
-                </div>
-                <input type="hidden" id="modalProductId">
-                
-                <div style="margin:20px 0;">
-                    <label>الكمية المراد شراؤها</label>
-                    <input type="number" id="modalPurchaseQty" min="1" value="1" style="font-size:1.2rem; text-align:center;">
-                </div>
-                
-                <div style="margin:20px 0;">
-                    <label>سعر الشراء (ج.م)</label>
-                    <input type="number" id="modalPurchasePrice" min="0" step="0.01" style="font-size:1.2rem; text-align:center;">
-                </div>
-                
-                <div style="margin:20px 0;">
-                    <label>📅 تاريخ الصلاحية</label>
-                    <input type="date" id="modalExpiryDate" style="font-size:1rem;">
-                </div>
-                
-                <div style="display:flex; gap:10px; margin-top:25px;">
-                    <button class="primary" id="confirmAddToPurchaseBtn" style="flex:2;">➕ إضافة للسلة</button>
-                    <button class="danger" onclick="closePurchaseModal()" style="flex:1;">إلغاء</button>
-                </div>
-            </div>
-        </div>
-        `;
-
-        // دالة إغلاق المودال
-        window.closePurchaseModal = function() {
-            document.getElementById('addToPurchaseModal').style.display = 'none';
-        };
-
-        // عرض المنتجات
-        const renderPurchaseProducts = (search = '') => {
-            const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
-            document.getElementById('purchaseProductsContainer').innerHTML = filtered.map(p => {
-                const currentStock = p.batches ? p.batches.reduce((s, b) => s + b.quantity, 0) : (p.stock || 0);
-                return `<div class="product-card">
-                    <div class="product-icon">
-                        ${p.image && p.image.startsWith('data:image') ? 
-                            `<img src="${p.image}" style="width:80px;height:80px;object-fit:cover;border-radius:12px;">` : 
-                            `<span style="font-size:50px;">${p.image || '🐾'}</span>`}
-                    </div>
-                    <div>
-                        <strong>${p.name}</strong><br>
-                        <small>المخزون الحالي: ${currentStock}</small><br>
-                        <small>سعر الجملة: ${p.priceWholesale} ج.م</small><br>
-                        ${p.batches && p.batches.length > 0 ? 
-                            p.batches.slice(0, 2).map(b => {
-                                const status = getExpiryStatus(b.expiryDate);
-                                return `<small class="${status.class}">📅 ${b.expiryDate || '-'} (${b.quantity})</small><br>`;
-                            }).join('') : ''}
-                        <button class="primary openPurchaseModalBtn" data-id="${p.id}" data-name="${p.name}" data-price="${p.priceWholesale}" style="width:100%; margin-top:8px; padding:8px;">
-                            ➕ إضافة للشراء
-                        </button>
-                    </div>
-                </div>`;
-            }).join('');
-            
-            document.querySelectorAll('.openPurchaseModalBtn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const pid = +btn.dataset.id;
-                    const pname = btn.dataset.name;
-                    const pprice = +btn.dataset.price;
-                    
-                    document.getElementById('modalProductId').value = pid;
-                    document.getElementById('modalProductName').textContent = pname;
-                    document.getElementById('modalPurchasePrice').value = pprice;
-                    document.getElementById('modalPurchaseQty').value = 1;
-                    
-                    // تعيين تاريخ افتراضي (سنة من الآن)
-                    const defaultDate = new Date();
-                    defaultDate.setFullYear(defaultDate.getFullYear() + 1);
-                    document.getElementById('modalExpiryDate').value = defaultDate.toISOString().split('T')[0];
-                    
-                    document.getElementById('addToPurchaseModal').style.display = 'flex';
-                });
-            });
-        };
-
-        // تأكيد الإضافة للسلة
-        document.getElementById('confirmAddToPurchaseBtn')?.addEventListener('click', () => {
-            const pid = +document.getElementById('modalProductId').value;
-            const qty = +document.getElementById('modalPurchaseQty').value;
-            const price = +document.getElementById('modalPurchasePrice').value;
-            const expiryDate = document.getElementById('modalExpiryDate').value;
-            
-            if (!qty || qty <= 0) { showMsg('أدخل كمية صحيحة', true); return; }
-            if (!price || price <= 0) { showMsg('أدخل سعر شراء صحيح', true); return; }
-            
-            const prod = products.find(p => p.id === pid);
-            if (!prod) return;
-            
-            purchaseCart.push({
-                id: prod.id,
-                name: prod.name,
-                price: price,
-                qty: qty,
-                expiryDate: expiryDate || null,
-                image: prod.image
-            });
-            
-            closePurchaseModal();
-            renderPurchase(container);
-            showMsg(`✅ تمت إضافة ${qty} ${prod.name} للسلة`);
-        });
-
-        // حذف من السلة
-        document.querySelectorAll('.removeFromPurchaseCartBtn').forEach(btn => {
+        
+        document.querySelectorAll('.openPurchaseModalBtn').forEach(btn => {
             btn.addEventListener('click', () => {
-                let idx = +btn.dataset.idx;
-                purchaseCart.splice(idx, 1);
-                renderPurchase(container);
+                const pid = +btn.dataset.id;
+                const pname = btn.dataset.name;
+                const pprice = +btn.dataset.price;
+                
+                document.getElementById('modalProductId').value = pid;
+                document.getElementById('modalProductName').textContent = pname;
+                document.getElementById('modalPurchasePrice').value = pprice;
+                document.getElementById('modalPurchaseQty').value = 1;
+                
+                // تعيين تاريخ افتراضي (سنة من الآن)
+                const defaultDate = new Date();
+                defaultDate.setFullYear(defaultDate.getFullYear() + 1);
+                document.getElementById('modalExpiryDate').value = defaultDate.toISOString().split('T')[0];
+                
+                document.getElementById('addToPurchaseModal').style.display = 'flex';
             });
         });
+    };
 
-        // تفريغ السلة
-        document.getElementById('clearPurchaseCartBtn')?.addEventListener('click', () => {
-            if (confirm('تفريغ سلة المشتريات؟')) {
-                purchaseCart = [];
-                purchaseDiscountPercent = 0;
-                taxAmount = 0;
-                paidAmount = 0;
-                renderPurchase(container);
-            }
-        });
-
-        // تحديث الحسابات
-        const updatePurchaseTotals = () => {
-            let currentSubtotal = purchaseCart.reduce((s, i) => s + (i.price * i.qty), 0);
-            let currentDiscountValue = currentSubtotal * (purchaseDiscountPercent / 100);
-            let currentAfterDiscount = currentSubtotal - currentDiscountValue;
-            let currentFinalTotal = currentAfterDiscount + taxAmount;
-            let currentRemaining = currentFinalTotal - paidAmount;
-            
-            document.getElementById('purchaseSubtotalDisplay').textContent = currentSubtotal.toFixed(2);
-            document.getElementById('purchaseDiscountValueDisplay').textContent = currentDiscountValue.toFixed(2);
-            document.getElementById('purchaseFinalTotalDisplay').textContent = currentFinalTotal.toFixed(2);
-            document.getElementById('purchaseRemainingDisplay').textContent = currentRemaining.toFixed(2);
-        };
-
-        document.getElementById('purchaseDiscountInput')?.addEventListener('input', (e) => {
-            let value = parseFloat(e.target.value) || 0;
-            if (value < 0) value = 0;
-            if (value > 100) value = 100;
-            purchaseDiscountPercent = value;
-            updatePurchaseTotals();
+    // تأكيد الإضافة للسلة
+    document.getElementById('confirmAddToPurchaseBtn')?.addEventListener('click', () => {
+        const pid = +document.getElementById('modalProductId').value;
+        const qty = +document.getElementById('modalPurchaseQty').value;
+        const price = +document.getElementById('modalPurchasePrice').value;
+        const expiryDate = document.getElementById('modalExpiryDate').value;
+        
+        if (!qty || qty <= 0) { showMsg('أدخل كمية صحيحة', true); return; }
+        if (!price || price <= 0) { showMsg('أدخل سعر شراء صحيح', true); return; }
+        
+        const prod = products.find(p => p.id === pid);
+        if (!prod) return;
+        
+        purchaseCart.push({
+            id: prod.id,
+            name: prod.name,
+            price: price,
+            qty: qty,
+            expiryDate: expiryDate || null,
+            image: prod.image
         });
         
-        document.getElementById('purchaseTaxInput')?.addEventListener('input', (e) => {
-            taxAmount = parseFloat(e.target.value) || 0;
-            updatePurchaseTotals();
-        });
-        
-        document.getElementById('purchasePaidInput')?.addEventListener('input', (e) => {
-            paidAmount = parseFloat(e.target.value) || 0;
-            updatePurchaseTotals();
-        });
+        closePurchaseModal();
+        renderPurchase(container);
+        showMsg(`✅ تمت إضافة ${qty} ${prod.name} للسلة`);
+    });
 
-        // البحث
-        document.getElementById('searchPurchaseProduct')?.addEventListener('input', (e) => {
-            renderPurchaseProducts(e.target.value);
+    // حذف من السلة
+    document.querySelectorAll('.removeFromPurchaseCartBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            let idx = +btn.dataset.idx;
+            purchaseCart.splice(idx, 1);
+            renderPurchase(container);
         });
+    });
 
-        // تسجيل فاتورة الشراء
-        document.getElementById('commitPurchaseBtn')?.addEventListener('click', () => {
-            if (purchaseCart.length === 0) { showMsg('السلة فارغة', true); return; }
-            
-            let supId = +document.getElementById('supSelect').value;
-            let sup = suppliers.find(s => s.id === supId);
-            
-            if (!sup) { showMsg('اختر مورداً', true); return; }
-            
-            // إضافة الدُفعات للمنتجات
-            for (let item of purchaseCart) {
-                let prod = products.find(p => p.id === item.id);
-                if (prod) {
-                    if (!prod.batches) prod.batches = [];
-                    
-                    // إضافة دفعة جديدة
-                    prod.batches.push({
-                        id: genId(prod.batches),
-                        quantity: item.qty,
-                        expiryDate: item.expiryDate || null,
-                        purchaseDate: new Date().toISOString().split('T')[0],
-                        purchasePrice: item.price
-                    });
-                    
-                    // تسجيل حركة المخزون
-                    stockMovements.push({
-                        id: genId(stockMovements),
-                        type: 'إيداع',
-                        productId: prod.id,
-                        productName: prod.name,
-                        quantity: item.qty,
-                        source: `مورد: ${sup.name}`,
-                        date: new Date().toISOString().split('T')[0],
-                        recordedBy: currentUser?.fullName || '-',
-                        branch: 'الرئيسي',
-                        expiryDate: item.expiryDate
-                    });
-                }
-            }
-            
-            // حساب الإجماليات
-            let subtotal = purchaseCart.reduce((s, i) => s + (i.price * i.qty), 0);
-            let discountValue = subtotal * (purchaseDiscountPercent / 100);
-            let finalTotal = subtotal - discountValue + taxAmount;
-            let remaining = finalTotal - paidAmount;
-            
-            // إنشاء فاتورة الشراء
-            let newId = genId(purchaseInvoices);
-            purchaseInvoices.push({
-                id: newId,
-                supplierId: supId,
-                supplier: sup.name,
-                date: new Date().toLocaleString('ar-EG'),
-                items: JSON.parse(JSON.stringify(purchaseCart)),
-                subtotal: subtotal,
-                discountPercent: purchaseDiscountPercent,
-                discountValue: discountValue,
-                tax: taxAmount,
-                paid: paidAmount,
-                remaining: remaining,
-                total: finalTotal,
-                createdBy: currentUser?.fullName || 'غير معروف'
-            });
-            
-            updateTotalStock();
-            saveAll();
-            checkProductAlerts();
-            
-            // تفريغ السلة
+    // تفريغ السلة
+    document.getElementById('clearPurchaseCartBtn')?.addEventListener('click', () => {
+        if (confirm('تفريغ سلة المشتريات؟')) {
             purchaseCart = [];
             purchaseDiscountPercent = 0;
             taxAmount = 0;
             paidAmount = 0;
-            
-            showMsg(`✅ تم تسجيل فاتورة الشراء رقم ${newId}`);
             renderPurchase(container);
-        });
+        }
+    });
 
-        renderPurchaseProducts();
+    // تحديث الحسابات
+    const updatePurchaseTotals = () => {
+        let currentSubtotal = purchaseCart.reduce((s, i) => s + (i.price * i.qty), 0);
+        let currentDiscountValue = currentSubtotal * (purchaseDiscountPercent / 100);
+        let currentAfterDiscount = currentSubtotal - currentDiscountValue;
+        let currentFinalTotal = currentAfterDiscount + taxAmount;
+        let currentRemaining = currentFinalTotal - paidAmount;
+        
+        document.getElementById('purchaseSubtotalDisplay').textContent = currentSubtotal.toFixed(2);
+        document.getElementById('purchaseDiscountValueDisplay').textContent = currentDiscountValue.toFixed(2);
+        document.getElementById('purchaseFinalTotalDisplay').textContent = currentFinalTotal.toFixed(2);
+        document.getElementById('purchaseRemainingDisplay').textContent = currentRemaining.toFixed(2);
+    };
+
+    document.getElementById('purchaseDiscountInput')?.addEventListener('input', (e) => {
+        let value = parseFloat(e.target.value) || 0;
+        if (value < 0) value = 0;
+        if (value > 100) value = 100;
+        purchaseDiscountPercent = value;
         updatePurchaseTotals();
-    }
+    });
     
-    function renderReturnPurchase(container) {
-        container.innerHTML = `<h2>استرجاع فاتورة شراء</h2><div class="flex-wrap"><input id="returnSearchId" placeholder="بحث برقم الفاتورة" style="flex:1"><button class="primary" id="returnSearchBtn">🔍 بحث</button></div><div id="returnPurchaseResult"></div>`;
-        const displayPurchaseInvoices = (list) => {
-            if (list.length === 0) { document.getElementById('returnPurchaseResult').innerHTML = '<p>لا توجد فواتير</p>'; return; }
-            document.getElementById('returnPurchaseResult').innerHTML = `<table><thead><tr><th>رقم الفاتورة</th><th>المورد</th><th>التاريخ</th><th>الإجمالي</th><th>إجراء</th></tr></thead><tbody>${list.map(p => `<tr><td>${p.id}</td><td>${p.supplier}</td><td>${p.date}</td><td>${p.total} ج.م</td><td><button class="danger returnPurchaseBtn" data-id="${p.id}">↩️ استرجاع</button></td></tr>`).join('')}</tbody></table>`;
-            document.querySelectorAll('.returnPurchaseBtn').forEach(btn => btn.addEventListener('click', () => {
-                if (confirm('تأكيد استرجاع فاتورة الشراء؟ سيتم خصم الكميات من المخزون')) {
-                    let id = +btn.dataset.id, inv = purchaseInvoices.find(p => p.id === id);
-                    if (inv?.items) {
-                        for (let item of inv.items) {
-                            let prod = products.find(p => p.id === item.id);
-                            if (prod && prod.batches) {
-                                // خصم الكمية من الدُفعة المطابقة
-                                let batch = prod.batches.find(b => b.expiryDate === item.expiryDate);
-                                if (batch) {
-                                    batch.quantity = Math.max(0, batch.quantity - item.qty);
-                                }
-                                // حذف الدُفعات الفارغة
-                                prod.batches = prod.batches.filter(b => b.quantity > 0);
-                                
-                                stockMovements.push({ 
-                                    id: genId(stockMovements), 
-                                    type: 'سحب', 
-                                    productId: prod.id, 
-                                    productName: prod.name, 
-                                    quantity: item.qty, 
-                                    destination: `استرجاع فاتورة شراء - ${inv.supplier}`, 
-                                    date: new Date().toISOString().split('T')[0], 
-                                    recordedBy: currentUser?.fullName || '-', 
-                                    branch: 'الرئيسي' 
-                                });
-                            }
-                        }
-                    }
-                    purchaseInvoices = purchaseInvoices.filter(p => p.id !== id);
-                    updateTotalStock();
-                    saveAll(); 
-                    checkProductAlerts();
-                    showMsg('تم استرجاع فاتورة الشراء');
-                    renderReturnPurchase(container);
-                }
-            }));
-        };
-        document.getElementById('returnSearchBtn')?.addEventListener('click', () => { 
-            let searchId = document.getElementById('returnSearchId').value; 
-            displayPurchaseInvoices(searchId ? purchaseInvoices.filter(p => p.id == searchId) : purchaseInvoices); 
-        });
-        displayPurchaseInvoices(purchaseInvoices);
-    }
+    document.getElementById('purchaseTaxInput')?.addEventListener('input', (e) => {
+        taxAmount = parseFloat(e.target.value) || 0;
+        updatePurchaseTotals();
+    });
     
-    function renderPurchaseList(container) {
-        container.innerHTML = `<h2>سجل فواتير الشراء</h2><button class="primary" id="exportPurchaseBtn">تصدير Excel</button>
-        ${purchaseInvoices.length === 0 ? '<p>لا توجد فواتير</p>' : `<table><thead><tr><th>رقم</th><th>المورد</th><th>التاريخ</th><th>الإجمالي</th><th>المدفوع</th><th>💰 المتبقي للمورد</th><th>تفاصيل</th><th>حذف</th></tr></thead><tbody>${purchaseInvoices.map(p => `<tr><td>${p.id}</td><td>${p.supplier}</td><td>${p.date}</td><td>${p.total}</td><td>${p.paid || 0}</td><td>${p.remaining || 0}</td><td><button class="info viewPurchaseBtn" data-id="${p.id}">👁️</button></td><td><button class="danger deletePurchaseBtn" data-id="${p.id}">🗑️</button></td></tr>`).join('')}</tbody></table>`}`;
+    document.getElementById('purchasePaidInput')?.addEventListener('input', (e) => {
+        paidAmount = parseFloat(e.target.value) || 0;
+        updatePurchaseTotals();
+    });
+
+    // البحث
+    document.getElementById('searchPurchaseProduct')?.addEventListener('input', (e) => {
+        renderPurchaseProducts(e.target.value);
+    });
+
+    // تسجيل فاتورة الشراء
+    document.getElementById('commitPurchaseBtn')?.addEventListener('click', () => {
+        if (purchaseCart.length === 0) { showMsg('السلة فارغة', true); return; }
         
-        document.getElementById('exportPurchaseBtn')?.addEventListener('click', () => { 
-            let data = purchaseInvoices.map(p => [p.id, p.supplier, p.date, p.total, p.paid || 0, p.remaining || 0]); 
-            exportToExcel(data, 'سجل_المشتريات', ['رقم', 'المورد', 'التاريخ', 'الإجمالي', 'المدفوع', 'المتبقي للمورد']); 
-        });
+        let supId = +document.getElementById('supSelect').value;
+        let sup = suppliers.find(s => s.id === supId);
         
-        container.addEventListener('click', (e) => {
-            let viewBtn = e.target.closest('.viewPurchaseBtn');
-            if (viewBtn) {
-                let id = +viewBtn.dataset.id, inv = purchaseInvoices.find(p => p.id === id);
-                if (!inv) return;
-                let itemsHtml = inv.items.map(item => {
-                    const status = getExpiryStatus(item.expiryDate);
-                    return `<tr><td>${item.name}<br><small class="${status.class}">📅 ${item.expiryDate || '-'} ${status.text}</small></td><td>${item.qty}</td><td>${item.price}</td><td>${item.qty * item.price}</td></tr>`;
-                }).join('');
-                let discountRow = inv.discountValue ? `<tr><td colspan="3">خصم ${inv.discountPercent || 0}%</td><td>- ${inv.discountValue} ج.م</td></tr>` : '';
-                let taxRow = inv.tax ? `<tr><td colspan="3">ضريبة</td><td>${inv.tax} ج.م</td></tr>` : '';
-                let win = window.open('', '_blank');
-                win.document.write(`<html dir="rtl"><head><title>تفاصيل فاتورة الشراء</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><style>body{font-family:'Cairo',sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #ccc;padding:8px;text-align:center}th{background:#eee}</style></head><body><h2>تفاصيل فاتورة الشراء</h2><p>رقم الفاتورة: ${inv.id}</p><p>المورد: ${inv.supplier}</p><p>التاريخ: ${inv.date}</p><table><thead><tr><th>الصنف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead><tbody>${itemsHtml}${discountRow}${taxRow}</tbody></table><h3>الإجمالي: ${inv.total} ج.م</h3><h3>المدفوع: ${inv.paid || 0} ج.م</h3><h3>💰 المتبقي للمورد: ${inv.remaining || 0} ج.م</h3></body></html>`);
+        if (!sup) { showMsg('اختر مورداً', true); return; }
+        
+        // إضافة الدُفعات للمنتجات
+        for (let item of purchaseCart) {
+            let prod = products.find(p => p.id === item.id);
+            if (prod) {
+                if (!prod.batches) prod.batches = [];
+                
+                // إضافة دفعة جديدة
+                prod.batches.push({
+                    id: genId(prod.batches),
+                    quantity: item.qty,
+                    expiryDate: item.expiryDate || null,
+                    purchaseDate: new Date().toISOString().split('T')[0],
+                    purchasePrice: item.price
+                });
+                
+                // تسجيل حركة المخزون
+                stockMovements.push({
+                    id: genId(stockMovements),
+                    type: 'إيداع',
+                    productId: prod.id,
+                    productName: prod.name,
+                    quantity: item.qty,
+                    source: `مورد: ${sup.name}`,
+                    date: new Date().toISOString().split('T')[0],
+                    recordedBy: currentUser?.fullName || '-',
+                    branch: 'الرئيسي',
+                    expiryDate: item.expiryDate
+                });
             }
-            let delBtn = e.target.closest('.deletePurchaseBtn');
-            if (delBtn && confirm('حذف الفاتورة؟')) {
-                let id = +delBtn.dataset.id, inv = purchaseInvoices.find(p => p.id === id);
-                if (inv?.items) { 
-                    for (let item of inv.items) { 
-                        let prod = products.find(p => p.id === item.id); 
+        }
+        
+        // حساب الإجماليات
+        let subtotal = purchaseCart.reduce((s, i) => s + (i.price * i.qty), 0);
+        let discountValue = subtotal * (purchaseDiscountPercent / 100);
+        let finalTotal = subtotal - discountValue + taxAmount;
+        let remaining = finalTotal - paidAmount;
+        
+        // إنشاء فاتورة الشراء
+        let newId = genId(purchaseInvoices);
+        let newInvoice = {
+            id: newId,
+            supplierId: supId,
+            supplier: sup.name,
+            date: new Date().toLocaleString('ar-EG'),
+            items: JSON.parse(JSON.stringify(purchaseCart)),
+            subtotal: subtotal,
+            discountPercent: purchaseDiscountPercent,
+            discountValue: discountValue,
+            tax: taxAmount,
+            paid: paidAmount,
+            remaining: remaining,
+            total: finalTotal,
+            createdBy: currentUser?.fullName || 'غير معروف'
+        };
+        
+        purchaseInvoices.push(newInvoice);
+        
+        updateTotalStock();
+        saveAll();
+        checkProductAlerts();
+        
+        // طباعة الفاتورة مباشرة
+        printPurchaseInvoice(newInvoice);
+        
+        // تفريغ السلة
+        purchaseCart = [];
+        purchaseDiscountPercent = 0;
+        taxAmount = 0;
+        paidAmount = 0;
+        
+        showMsg(`✅ تم تسجيل فاتورة الشراء رقم ${newId}`);
+        renderPurchase(container);
+    });
+
+    renderPurchaseProducts();
+    updatePurchaseTotals();
+}
+  function renderReturnPurchase(container) {
+    container.innerHTML = `<h2>استرجاع فاتورة شراء</h2><div class="flex-wrap"><input id="returnSearchId" placeholder="بحث برقم الفاتورة" style="flex:1"><button class="primary" id="returnSearchBtn">🔍 بحث</button></div><div id="returnPurchaseResult"></div>`;
+    const displayPurchaseInvoices = (list) => {
+        if (list.length === 0) { document.getElementById('returnPurchaseResult').innerHTML = '<p>لا توجد فواتير</p>'; return; }
+        document.getElementById('returnPurchaseResult').innerHTML = `<table><thead><tr><th>رقم الفاتورة</th><th>المورد</th><th>التاريخ</th><th>الإجمالي</th><th>إجراءات</th></tr></thead><tbody>${list.map(p => `<tr><td>${p.id}</td><td>${p.supplier}</td><td>${p.date}</td><td>${p.total} ج.م</td><td><button class="primary printPurchaseInvoiceBtn" data-id="${p.id}">🖨️ طباعة</button><button class="danger returnPurchaseBtn" data-id="${p.id}">↩️ استرجاع</button></td></tr>`).join('')}</tbody></table>`;
+        
+        // زر الطباعة
+        document.querySelectorAll('.printPurchaseInvoiceBtn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                let id = +btn.dataset.id;
+                let inv = purchaseInvoices.find(p => p.id === id);
+                if (inv) {
+                    printPurchaseInvoice(inv);
+                }
+            });
+        });
+        
+        // زر الاسترجاع
+        document.querySelectorAll('.returnPurchaseBtn').forEach(btn => btn.addEventListener('click', () => {
+            if (confirm('تأكيد استرجاع فاتورة الشراء؟ سيتم خصم الكميات من المخزون')) {
+                let id = +btn.dataset.id, inv = purchaseInvoices.find(p => p.id === id);
+                if (inv?.items) {
+                    for (let item of inv.items) {
+                        let prod = products.find(p => p.id === item.id);
                         if (prod && prod.batches) {
+                            // خصم الكمية من الدُفعة المطابقة
                             let batch = prod.batches.find(b => b.expiryDate === item.expiryDate);
                             if (batch) {
                                 batch.quantity = Math.max(0, batch.quantity - item.qty);
                             }
+                            // حذف الدُفعات الفارغة
                             prod.batches = prod.batches.filter(b => b.quantity > 0);
+                            
+                            stockMovements.push({ 
+                                id: genId(stockMovements), 
+                                type: 'سحب', 
+                                productId: prod.id, 
+                                productName: prod.name, 
+                                quantity: item.qty, 
+                                destination: `استرجاع فاتورة شراء - ${inv.supplier}`, 
+                                date: new Date().toISOString().split('T')[0], 
+                                recordedBy: currentUser?.fullName || '-', 
+                                branch: 'الرئيسي' 
+                            });
                         }
-                    } 
+                    }
                 }
                 purchaseInvoices = purchaseInvoices.filter(p => p.id !== id);
                 updateTotalStock();
-                saveAll();
-                renderPurchaseList(container);
+                saveAll(); 
+                checkProductAlerts();
+                showMsg('تم استرجاع فاتورة الشراء');
+                renderReturnPurchase(container);
             }
-        });
-    }
+        }));
+    };
+    document.getElementById('returnSearchBtn')?.addEventListener('click', () => { 
+        let searchId = document.getElementById('returnSearchId').value; 
+        displayPurchaseInvoices(searchId ? purchaseInvoices.filter(p => p.id == searchId) : purchaseInvoices); 
+    });
+    displayPurchaseInvoices(purchaseInvoices);
+}
+
+function renderPurchaseList(container) {
+    container.innerHTML = `<h2>📜 سجل فواتير الشراء</h2>
+    <div style="display:flex; gap:10px; margin-bottom:20px;">
+        <button class="primary" id="exportPurchaseBtn"><i class="fas fa-file-excel"></i> تصدير Excel</button>
+    </div>
+    ${purchaseInvoices.length === 0 ? '<p style="text-align:center; color:#999;">📭 لا توجد فواتير شراء</p>' : `
+    <table style="width:100%; background:white; border-radius:12px; overflow:hidden;">
+        <thead>
+            <tr style="background:#2c3e50; color:white;">
+                <th>رقم</th>
+                <th>المورد</th>
+                <th>التاريخ</th>
+                <th>الإجمالي</th>
+                <th>المدفوع</th>
+                <th>💰 المتبقي</th>
+                <th>إجراءات</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${purchaseInvoices.map(p => `
+                <tr style="border-bottom:1px solid #eee;">
+                    <td style="font-weight:bold;">#${p.id}</td>
+                    <td>${p.supplier}</td>
+                    <td>${p.date}</td>
+                    <td>${p.total.toFixed(2)} ج.م</td>
+                    <td style="color:#27ae60;">${(p.paid || 0).toFixed(2)} ج.م</td>
+                    <td style="color:${p.remaining > 0 ? '#e74c3c' : '#27ae60'}; font-weight:bold;">${(p.remaining || 0).toFixed(2)} ج.م</td>
+                    <td>
+                        <button class="primary printPurchaseInvoiceBtn" data-id="${p.id}" style="padding:5px 12px; margin:2px;" title="طباعة الفاتورة">
+                            🖨️ طباعة
+                        </button>
+                        <button class="info viewPurchaseBtn" data-id="${p.id}" style="padding:5px 12px; margin:2px;" title="عرض التفاصيل">
+                            👁️ عرض
+                        </button>
+                        <button class="danger deletePurchaseBtn" data-id="${p.id}" style="padding:5px 12px; margin:2px;" title="حذف الفاتورة">
+                            🗑️ حذف
+                        </button>
+                    </td>
+                </tr>
+            `).join('')}
+        </tbody>
+    </table>
+    `}`;
+    
+    // تصدير Excel
+    document.getElementById('exportPurchaseBtn')?.addEventListener('click', () => { 
+        let data = purchaseInvoices.map(p => [p.id, p.supplier, p.date, p.total.toFixed(2), (p.paid || 0).toFixed(2), (p.remaining || 0).toFixed(2)]); 
+        exportToExcel(data, 'سجل_المشتريات', ['رقم الفاتورة', 'المورد', 'التاريخ', 'الإجمالي', 'المدفوع', 'المتبقي']); 
+    });
+    
+    // أحداث الأزرار
+    container.addEventListener('click', (e) => {
+        // زر الطباعة
+        let printBtn = e.target.closest('.printPurchaseInvoiceBtn');
+        if (printBtn) {
+            let id = +printBtn.dataset.id;
+            let inv = purchaseInvoices.find(p => p.id === id);
+            if (inv) {
+                printPurchaseInvoice(inv);
+                showMsg(`🖨️ جاري طباعة الفاتورة رقم ${id}`);
+            }
+            return;
+        }
+        
+        // زر عرض التفاصيل
+        let viewBtn = e.target.closest('.viewPurchaseBtn');
+        if (viewBtn) {
+            let id = +viewBtn.dataset.id, inv = purchaseInvoices.find(p => p.id === id);
+            if (!inv) return;
+            
+            let itemsHtml = inv.items.map(item => {
+                const status = getExpiryStatus(item.expiryDate);
+                return `<tr>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            ${item.image && item.image.startsWith('data:image') ? 
+                                `<img src="${item.image}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;">` : 
+                                `<span style="font-size:24px;">${item.image || '🐾'}</span>`}
+                            <div>
+                                <strong>${item.name}</strong>
+                                <br><small class="${status.class}">📅 ${item.expiryDate || '-'} ${status.text}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td>${item.qty}</td>
+                    <td>${item.price.toFixed(2)} ج.م</td>
+                    <td>${(item.qty * item.price).toFixed(2)} ج.م</td>
+                </tr>`;
+            }).join('');
+            
+            let discountRow = inv.discountValue ? `<tr><td colspan="3" style="text-align:left;">💰 خصم ${inv.discountPercent || 0}%</td><td>- ${inv.discountValue.toFixed(2)} ج.م</td></tr>` : '';
+            let taxRow = inv.tax ? `<tr><td colspan="3" style="text-align:left;">📊 ضريبة</td><td>${inv.tax.toFixed(2)} ج.م</td></tr>` : '';
+            
+            let win = window.open('', '_blank');
+            win.document.write(`
+                <!DOCTYPE html>
+                <html dir="rtl">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>تفاصيل فاتورة الشراء #${inv.id}</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+                    <style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body { font-family: 'Cairo', sans-serif; background: #f5f5f5; padding: 20px; }
+                        .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 15px; padding: 25px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+                        h2 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; margin-bottom: 20px; }
+                        .info-box { background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-around; }
+                        .info-item { text-align: center; }
+                        .info-label { font-size: 0.85rem; color: #6c757d; }
+                        .info-value { font-size: 1.2rem; font-weight: bold; color: #2c3e50; }
+                        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                        th { background: #34495e; color: white; padding: 12px; font-weight: 600; }
+                        td { padding: 10px; border-bottom: 1px solid #dee2e6; }
+                        .total-section { background: #f8f9fa; padding: 20px; border-radius: 10px; margin-top: 20px; }
+                        .total-row { display: flex; justify-content: space-between; padding: 8px 0; }
+                        .total-row.final { font-size: 1.3rem; font-weight: bold; color: #2c3e50; border-top: 2px solid #dee2e6; margin-top: 10px; padding-top: 15px; }
+                        .status-paid { color: #27ae60; }
+                        .status-partial { color: #e74c3c; }
+                        .print-btn { background: #3498db; color: white; border: none; padding: 12px 30px; border-radius: 30px; font-size: 1rem; cursor: pointer; font-family: 'Cairo'; margin-top: 20px; }
+                        .print-btn:hover { background: #2980b9; }
+                        @media print {
+                            body { background: white; }
+                            .container { box-shadow: none; }
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h2>📋 تفاصيل فاتورة الشراء</h2>
+                            <span style="font-size:2rem;">🛒</span>
+                        </div>
+                        
+                        <div class="info-box">
+                            <div class="info-item">
+                                <div class="info-label">رقم الفاتورة</div>
+                                <div class="info-value">#${inv.id}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">المورد</div>
+                                <div class="info-value">${inv.supplier}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">التاريخ</div>
+                                <div class="info-value">${inv.date}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">الكاشير</div>
+                                <div class="info-value">${inv.createdBy || '-'}</div>
+                            </div>
+                        </div>
+                        
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>الصنف</th>
+                                    <th>الكمية</th>
+                                    <th>السعر</th>
+                                    <th>الإجمالي</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${itemsHtml}
+                                ${discountRow}
+                                ${taxRow}
+                            </tbody>
+                        </table>
+                        
+                        <div class="total-section">
+                            <div class="total-row">
+                                <span>الإجمالي الفرعي</span>
+                                <span>${inv.subtotal.toFixed(2)} ج.م</span>
+                            </div>
+                            ${inv.discountValue ? `
+                            <div class="total-row" style="color:#e74c3c;">
+                                <span>الخصم (${inv.discountPercent}%)</span>
+                                <span>- ${inv.discountValue.toFixed(2)} ج.م</span>
+                            </div>
+                            ` : ''}
+                            ${inv.tax ? `
+                            <div class="total-row">
+                                <span>الضريبة</span>
+                                <span>${inv.tax.toFixed(2)} ج.م</span>
+                            </div>
+                            ` : ''}
+                            <div class="total-row final">
+                                <span>💰 الإجمالي النهائي</span>
+                                <span>${inv.total.toFixed(2)} ج.م</span>
+                            </div>
+                            <div class="total-row">
+                                <span>💳 المدفوع</span>
+                                <span style="color:#27ae60;">${(inv.paid || 0).toFixed(2)} ج.م</span>
+                            </div>
+                            <div class="total-row">
+                                <span>⏳ المتبقي</span>
+                                <span style="color:${inv.remaining > 0 ? '#e74c3c' : '#27ae60'};">
+                                    ${(inv.remaining || 0).toFixed(2)} ج.م
+                                    ${inv.remaining > 0 ? '<span class="status-partial"> (دفعة جزئية)</span>' : '<span class="status-paid"> (مدفوع بالكامل)</span>'}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div style="text-align:center;">
+                            <button class="print-btn no-print" onclick="window.print()">🖨️ طباعة التفاصيل</button>
+                            <button class="print-btn no-print" onclick="window.close()" style="background:#95a5a6; margin-right:10px;">✕ إغلاق</button>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `);
+            win.document.close();
+            return;
+        }
+        
+        // زر الحذف
+        let delBtn = e.target.closest('.deletePurchaseBtn');
+        if (delBtn && confirm('⚠️ هل أنت متأكد من حذف هذه الفاتورة؟ سيتم خصم الكميات من المخزون.')) {
+            let id = +delBtn.dataset.id, inv = purchaseInvoices.find(p => p.id === id);
+            if (inv?.items) { 
+                for (let item of inv.items) { 
+                    let prod = products.find(p => p.id === item.id); 
+                    if (prod && prod.batches) {
+                        let batch = prod.batches.find(b => b.expiryDate === item.expiryDate);
+                        if (batch) {
+                            batch.quantity = Math.max(0, batch.quantity - item.qty);
+                        }
+                        prod.batches = prod.batches.filter(b => b.quantity > 0);
+                        
+                        // تسجيل حركة المخزون
+                        stockMovements.push({ 
+                            id: genId(stockMovements), 
+                            type: 'سحب', 
+                            productId: prod.id, 
+                            productName: prod.name, 
+                            quantity: item.qty, 
+                            destination: `حذف فاتورة شراء #${id}`, 
+                            date: new Date().toISOString().split('T')[0], 
+                            recordedBy: currentUser?.fullName || '-', 
+                            branch: 'الرئيسي' 
+                        });
+                    }
+                } 
+            }
+            purchaseInvoices = purchaseInvoices.filter(p => p.id !== id);
+            updateTotalStock();
+            saveAll();
+            checkProductAlerts();
+            showMsg(`🗑️ تم حذف الفاتورة رقم ${id}`);
+            renderPurchaseList(container);
+        }
+    });
+}
     
     function renderSuppliers(container) {
         container.innerHTML = `<h2>إدارة الموردين</h2><div class="grid-2"><div><input id="supName" placeholder="اسم المورد"><input id="supAddr" placeholder="العنوان"><input id="supPhone" placeholder="الهاتف"><button class="primary" id="addSupBtn">➕ إضافة</button></div><div id="suppliersUl"></div></div>`;
