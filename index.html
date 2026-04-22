@@ -1664,120 +1664,192 @@
     }
     
     function renderPurchase(container) {
-        let purchaseCartHtml = purchaseCart.map((item, idx) => `<div class="cart-item"><span>${item.name} x${item.qty}</span><span>${item.price * item.qty} ج.م</span><button class="danger removeFromPurchaseCartBtn" data-idx="${idx}"><i class="fas fa-trash"></i></button></div>`).join('');
-        let subtotal = purchaseCart.reduce((s, i) => s + i.price * i.qty, 0);
-        let discountValue = subtotal * (purchaseDiscountPercent / 100);
-        let afterDiscount = subtotal - discountValue;
-        let finalTotal = afterDiscount + taxAmount;
-        let remaining = finalTotal - paidAmount;
-        
-        container.innerHTML = `<h2>فاتورة شراء من مورد</h2>
-        <div class="grid-2">
-            <div>
-                <h3>اختر المورد</h3>
-                <select id="supSelect">${suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select>
-                <h3>المنتجات المتاحة للشراء</h3>
-                <div class="grid-3">${products.map(p => `<div class="product-card">
-                    <div class="product-icon">
-                        ${p.image && p.image.startsWith('data:image') ? `<img src="${p.image}" style="width:80px; height:80px; object-fit:cover; border-radius:12px;">` : `<span style="font-size:50px;">${p.image || '🐾'}</span>`}
-                    </div>
-                    <div>
-                        <strong>${p.name}</strong><br>
-                        <small>المخزون: ${p.stock}</small><br>
-                        <div style="margin-top:8px;">
-                            <input type="number" id="purchaseQty_${p.id}" placeholder="الكمية" min="0" value="0" style="width:80px; text-align:center;">
-                            <input type="number" id="purchasePrice_${p.id}" placeholder="السعر" min="0" step="0.01" value="${p.priceWholesale}" style="width:80px; text-align:center; margin-top:5px;">
-                            <button class="primary addToPurchaseCartBtn" data-id="${p.id}" style="width:100%; margin-top:5px; padding:5px;">➕ إضافة</button>
+    let purchaseCartHtml = purchaseCart.map((item, idx) => `
+        <div class="cart-item">
+            <span>
+                ${item.name} x${item.qty}<br>
+                <small>📅 ${item.expiryDate}</small>
+            </span>
+            <span>${item.price * item.qty} ج.م</span>
+            <button class="danger removeFromPurchaseCartBtn" data-idx="${idx}">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `).join('');
+
+    let subtotal = purchaseCart.reduce((s, i) => s + i.price * i.qty, 0);
+    let discountValue = subtotal * (purchaseDiscountPercent / 100);
+    let afterDiscount = subtotal - discountValue;
+    let finalTotal = afterDiscount + taxAmount;
+    let remaining = finalTotal - paidAmount;
+
+    container.innerHTML = `
+    <h2>فاتورة شراء من مورد</h2>
+    <div class="grid-2">
+        <div>
+            <h3>اختر المورد</h3>
+            <select id="supSelect">
+                ${suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+            </select>
+
+            <h3>المنتجات المتاحة للشراء</h3>
+            <div class="grid-3">
+                ${products.map(p => `
+                    <div class="product-card">
+                        <div class="product-icon">
+                            ${p.image && p.image.startsWith('data:image')
+                                ? `<img src="${p.image}" style="width:80px; height:80px; object-fit:cover; border-radius:12px;">`
+                                : `<span style="font-size:50px;">${p.image || '🐾'}</span>`}
+                        </div>
+
+                        <div>
+                            <strong>${p.name}</strong><br>
+
+                            <small>المخزون: ${
+                                p.batches
+                                    ? p.batches.reduce((s, b) => s + b.quantity, 0)
+                                    : p.stock || 0
+                            }</small>
+
+                            <div style="margin-top:8px;">
+                                <input type="number" id="purchaseQty_${p.id}" placeholder="الكمية" min="0" value="0" style="width:80px; text-align:center;">
+                                
+                                <input type="number" id="purchasePrice_${p.id}" placeholder="السعر" min="0" step="0.01" value="${p.priceWholesale}" style="width:80px; text-align:center; margin-top:5px;">
+                                
+                                <!-- 🔥 تاريخ الصلاحية -->
+                                <input type="date" id="purchaseExpiry_${p.id}" style="width:100%; margin-top:5px;">
+                                
+                                <button class="primary addToPurchaseCartBtn" data-id="${p.id}" style="width:100%; margin-top:5px; padding:5px;">
+                                    ➕ إضافة
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>`).join('')}</div>
+                `).join('')}
             </div>
-            <div>
-                <h3>سلة المشتريات</h3>
-                <div id="purchaseCartItems" style="max-height:300px; overflow-y:auto;">${purchaseCartHtml || '🛒 سلة المشتريات فارغة'}</div>
-                <div class="flex-between" style="margin:15px 0;">
-                    <strong>الإجمالي الفرعي: <span id="purchaseSubtotalDisplay">${subtotal}</span> ج.م</strong>
-                    ${purchaseCart.length > 0 ? `<button class="danger" id="clearPurchaseCartBtn">🗑️ تفريغ</button>` : ''}
-                </div>
-                <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
-                    <label>💰 نسبة الخصم (%)</label>
-                    <input id="purchaseDiscountInput" type="number" min="0" max="100" step="0.1" value="${purchaseDiscountPercent}">
-                    <small>قيمة الخصم: <span id="purchaseDiscountValueDisplay">${discountValue.toFixed(2)}</span> ج.م</small>
-                </div>
-                <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
-                    <label>💵 الضريبة (ج.م)</label>
-                    <input id="purchaseTaxInput" type="number" min="0" step="0.01" value="${taxAmount}">
-                </div>
-                <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
-                    <label>💳 المدفوع للمورد (ج.م)</label>
-                    <input id="purchasePaidInput" type="number" min="0" step="0.01" value="${paidAmount}">
-                </div>
-                <div class="flex-between" style="margin:15px 0; padding:10px; background:#e8f5e9; border-radius:10px;">
-                    <strong>الإجمالي النهائي:</strong>
-                    <strong><span id="purchaseFinalTotalDisplay">${finalTotal.toFixed(2)}</span> ج.م</strong>
-                </div>
-                <div class="flex-between" style="margin:15px 0; padding:10px; background:#fff3e0; border-radius:10px;">
-                    <strong>💰 المتبقي للمورد:</strong>
-                    <strong><span id="purchaseRemainingDisplay">${remaining.toFixed(2)}</span> ج.م</strong>
-                </div>
-                <button class="primary" id="commitPurchaseBtn" ${purchaseCart.length === 0 ? 'disabled' : ''} style="width:100%;">✅ تسجيل فاتورة الشراء</button>
+        </div>
+
+        <div>
+            <h3>سلة المشتريات</h3>
+            <div id="purchaseCartItems" style="max-height:300px; overflow-y:auto;">
+                ${purchaseCartHtml || '🛒 سلة المشتريات فارغة'}
             </div>
-        </div>`;
-        
-        const updatePurchaseTotals = () => {
-            let currentSubtotal = purchaseCart.reduce((s, i) => s + (i.price * i.qty), 0);
-            let currentDiscountValue = currentSubtotal * (purchaseDiscountPercent / 100);
-            let currentAfterDiscount = currentSubtotal - currentDiscountValue;
-            let currentFinalTotal = currentAfterDiscount + taxAmount;
-            let currentRemaining = currentFinalTotal - paidAmount;
-            document.getElementById('purchaseSubtotalDisplay').textContent = currentSubtotal;
-            document.getElementById('purchaseDiscountValueDisplay').textContent = currentDiscountValue.toFixed(2);
-            document.getElementById('purchaseFinalTotalDisplay').textContent = currentFinalTotal.toFixed(2);
-            document.getElementById('purchaseRemainingDisplay').textContent = currentRemaining.toFixed(2);
-        };
-        
-        document.getElementById('purchaseDiscountInput')?.addEventListener('input', (e) => { purchaseDiscountPercent = parseFloat(e.target.value) || 0; updatePurchaseTotals(); });
-        document.getElementById('purchaseTaxInput')?.addEventListener('input', (e) => { taxAmount = parseFloat(e.target.value) || 0; updatePurchaseTotals(); });
-        document.getElementById('purchasePaidInput')?.addEventListener('input', (e) => { paidAmount = parseFloat(e.target.value) || 0; updatePurchaseTotals(); });
-        
-        document.querySelectorAll('.addToPurchaseCartBtn').forEach(btn => btn.addEventListener('click', () => {
-            let pid = +btn.dataset.id, prod = products.find(p => p.id === pid);
-            let qty = +document.getElementById(`purchaseQty_${pid}`).value;
-            let price = +document.getElementById(`purchasePrice_${pid}`).value;
-            if (!qty || qty <= 0) { showMsg('أدخل كمية صحيحة', true); return; }
-            if (!price || price <= 0) { showMsg('أدخل سعر شراء صحيح', true); return; }
-            let exist = purchaseCart.find(i => i.id === pid);
-            if (exist) { exist.qty += qty; exist.price = price; }
-            else { purchaseCart.push({ id: prod.id, name: prod.name, price: price, qty: qty, image: prod.image }); }
-            renderPurchase(container);
-        }));
-        
-        document.querySelectorAll('.removeFromPurchaseCartBtn').forEach(btn => btn.addEventListener('click', () => { let idx = +btn.dataset.idx; purchaseCart.splice(idx, 1); renderPurchase(container); }));
-        document.getElementById('clearPurchaseCartBtn')?.addEventListener('click', () => { purchaseCart = []; purchaseDiscountPercent = 0; taxAmount = 0; paidAmount = 0; renderPurchase(container); });
-        
-        document.getElementById('commitPurchaseBtn')?.addEventListener('click', () => {
-            let supId = +document.getElementById('supSelect').value, sup = suppliers.find(s => s.id === supId);
-            let subtotal = purchaseCart.reduce((s, i) => s + i.price * i.qty, 0);
-            let discountValue = subtotal * (purchaseDiscountPercent / 100);
-            let afterDiscount = subtotal - discountValue;
-            let finalTotal = afterDiscount + taxAmount;
-            let newId = genId(purchaseInvoices);
-            
-            for (let item of purchaseCart) {
-                let prod = products.find(p => p.id === item.id);
-                if (prod) {
-                    prod.stock += item.qty;
-                    stockMovements.push({ id: genId(stockMovements), type: 'إيداع', productId: prod.id, productName: prod.name, quantity: item.qty, source: `مورد: ${sup?.name}`, date: new Date().toISOString().split('T')[0], recordedBy: currentUser?.fullName || '-', branch: 'الرئيسي' });
-                }
-            }
-            
-            purchaseInvoices.push({ id: newId, supplier: sup?.name, supplierId: supId, date: new Date().toLocaleString(), items: JSON.parse(JSON.stringify(purchaseCart)), subtotal: subtotal, discountPercent: purchaseDiscountPercent, discountValue: discountValue, tax: taxAmount, paid: paidAmount, remaining: finalTotal - paidAmount, total: finalTotal });
-            saveAll();
-            checkProductAlerts();
-            purchaseCart = []; purchaseDiscountPercent = 0; taxAmount = 0; paidAmount = 0;
-            showMsg(`✅ تم تسجيل فاتورة الشراء رقم ${newId}`);
-            renderPurchase(container);
+
+            <div class="flex-between" style="margin:15px 0;">
+                <strong>الإجمالي الفرعي: <span id="purchaseSubtotalDisplay">${subtotal}</span> ج.م</strong>
+                ${purchaseCart.length > 0 ? `<button class="danger" id="clearPurchaseCartBtn">🗑️ تفريغ</button>` : ''}
+            </div>
+
+            <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
+                <label>💰 نسبة الخصم (%)</label>
+                <input id="purchaseDiscountInput" type="number" min="0" max="100" step="0.1" value="${purchaseDiscountPercent}">
+                <small>قيمة الخصم: <span id="purchaseDiscountValueDisplay">${discountValue.toFixed(2)}</span> ج.م</small>
+            </div>
+
+            <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
+                <label>💵 الضريبة (ج.م)</label>
+                <input id="purchaseTaxInput" type="number" min="0" step="0.01" value="${taxAmount}">
+            </div>
+
+            <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
+                <label>💳 المدفوع للمورد (ج.م)</label>
+                <input id="purchasePaidInput" type="number" min="0" step="0.01" value="${paidAmount}">
+            </div>
+
+            <div class="flex-between" style="margin:15px 0; padding:10px; background:#e8f5e9; border-radius:10px;">
+                <strong>الإجمالي النهائي:</strong>
+                <strong><span id="purchaseFinalTotalDisplay">${finalTotal.toFixed(2)}</span> ج.م</strong>
+            </div>
+
+            <div class="flex-between" style="margin:15px 0; padding:10px; background:#fff3e0; border-radius:10px;">
+                <strong>💰 المتبقي للمورد:</strong>
+                <strong><span id="purchaseRemainingDisplay">${remaining.toFixed(2)}</span> ج.م</strong>
+            </div>
+
+            <button class="primary" id="commitPurchaseBtn" ${purchaseCart.length === 0 ? 'disabled' : ''} style="width:100%;">
+                ✅ تسجيل فاتورة الشراء
+            </button>
+        </div>
+    </div>
+    `;
+
+    // 🔄 إضافة للسلة مع تاريخ الصلاحية
+    document.querySelectorAll('.addToPurchaseCartBtn').forEach(btn => btn.addEventListener('click', () => {
+        let pid = +btn.dataset.id;
+        let prod = products.find(p => p.id === pid);
+
+        let qty = +document.getElementById(`purchaseQty_${pid}`).value;
+        let price = +document.getElementById(`purchasePrice_${pid}`).value;
+        let expiry = document.getElementById(`purchaseExpiry_${pid}`).value;
+
+        if (!qty || qty <= 0) { showMsg('أدخل كمية صحيحة', true); return; }
+        if (!price || price <= 0) { showMsg('أدخل سعر شراء صحيح', true); return; }
+        if (!expiry) { showMsg('حدد تاريخ الصلاحية', true); return; }
+
+        purchaseCart.push({
+            id: prod.id,
+            name: prod.name,
+            price: price,
+            qty: qty,
+            expiryDate: expiry,
+            image: prod.image
         });
+
+        renderPurchase(container);
+    }));
+
+    // ❌ حذف من السلة
+    document.querySelectorAll('.removeFromPurchaseCartBtn').forEach(btn => btn.addEventListener('click', () => {
+        let idx = +btn.dataset.idx;
+        purchaseCart.splice(idx, 1);
+        renderPurchase(container);
+    }));
+
+    // 🧹 تفريغ السلة
+    document.getElementById('clearPurchaseCartBtn')?.addEventListener('click', () => {
+        purchaseCart = [];
+        renderPurchase(container);
+    });
+
+    // ✅ تسجيل الفاتورة (🔥 هنا التعديل المهم)
+    document.getElementById('commitPurchaseBtn')?.addEventListener('click', () => {
+        let supId = +document.getElementById('supSelect').value;
+        let sup = suppliers.find(s => s.id === supId);
+
+        for (let item of purchaseCart) {
+            let prod = products.find(p => p.id === item.id);
+            if (prod) {
+
+                // 🔥 إنشاء batches لو مش موجودة
+                if (!prod.batches) prod.batches = [];
+
+                // 🔥 إضافة batch جديد
+                prod.batches.push({
+                    quantity: item.qty,
+                    expiryDate: item.expiryDate
+                });
+
+                // 🔄 تحديث المخزون
+                prod.stock = prod.batches.reduce((s, b) => s + b.quantity, 0);
+
+                stockMovements.push({
+                    id: genId(stockMovements),
+                    type: 'إيداع',
+                    productId: prod.id,
+                    productName: prod.name,
+                    quantity: item.qty,
+                    source: `مورد: ${sup?.name}`,
+                    date: new Date().toISOString().split('T')[0]
+                });
+            }
+        }
+
+        saveAll();
+        purchaseCart = [];
+        showMsg('✅ تم تسجيل الفاتورة');
+        renderPurchase(container);
+    });
+
     }
     
     function renderReturnPurchase(container) {
