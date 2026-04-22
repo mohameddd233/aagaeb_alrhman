@@ -1152,10 +1152,51 @@
     function render() {
         const root = document.getElementById('root');
         if (currentView === 'loginChoice') {
-            root.innerHTML = `<div class="login-container"><div class="card-modern login-card"><div class="logo-img" style="margin:0 auto 20px; width:80px; height:80px;"><span style="font-size:50px;">🐾</span></div><h2 style="border:none">عجائب الرحمن</h2><p style="margin-bottom:30px; color:#8b6946;">نظام إدارة متجر الحيوانات الأليفة</p><div style="display:flex; gap:20px; justify-content:center;"><button class="primary" id="choiceAdmin"><i class="fas fa-user-cog"></i> مدير</button><button class="primary" id="choiceEmployee"><i class="fas fa-user"></i> موظف</button></div></div></div>`;
-            document.getElementById('choiceAdmin')?.addEventListener('click', () => { currentView = 'loginForm'; render(); });
-            document.getElementById('choiceEmployee')?.addEventListener('click', () => { currentView = 'loginForm'; render(); });
-            return;
+    root.innerHTML = `
+        <div class="login-container">
+            <div class="card-modern login-card">
+
+                <!-- اللوجو (معدل) -->
+                <div class="logo-img" style="margin:0 auto 20px; width:90px; height:90px;">
+                    <img src="logo.png" alt="logo">
+                </div>
+
+                <h2 style="border:none">عجائب الرحمن</h2>
+
+                <p style="margin-bottom:30px; color:#8b6946;">
+                    نظام إدارة متجر الحيوانات الأليفة
+                </p>
+
+                <div style="display:flex; gap:20px; justify-content:center; flex-wrap:wrap;">
+
+                    <button class="primary" id="choiceAdmin">
+                        <i class="fas fa-user-cog"></i> مدير
+                    </button>
+
+                    <button class="primary" id="choiceEmployee">
+                        <i class="fas fa-user"></i> موظف
+                    </button>
+
+                </div>
+
+            </div>
+        </div>
+    `;
+
+    document.getElementById('choiceAdmin')?.addEventListener('click', () => {
+        currentView = 'loginForm';
+        selectedRole = 'مدير'; // 👈 إضافة مهمة
+        render();
+    });
+
+    document.getElementById('choiceEmployee')?.addEventListener('click', () => {
+        currentView = 'loginForm';
+        selectedRole = 'موظف'; // 👈 إضافة مهمة
+        render();
+    });
+
+    return;
+}
         }
         if (currentView === 'loginForm') {
             root.innerHTML = `<div class="login-container"><div class="card-modern login-card"><div style="margin:0 auto 20px;"><span style="font-size:70px;">🐾</span></div><h2 style="border:none">تسجيل الدخول</h2><input type="text" id="loginUser" placeholder="اسم المستخدم" autocomplete="off"><input type="password" id="loginPass" placeholder="كلمة المرور"><button class="primary" id="doLoginBtn" style="width:100%"><i class="fas fa-sign-in-alt"></i> دخول</button></div></div>`;
