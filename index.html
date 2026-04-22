@@ -1075,6 +1075,8 @@
     
     // دالة طباعة قائمة المنتجاتwindow.printProductList = function(type) {
 
+    window.printProductList = function(type) {
+
     const productsList = products.map(p => ({
         name: p.name,
         price: type === 'wholesale' ? p.priceWholesale : p.priceRetail,
@@ -1235,7 +1237,6 @@
     `);
 
     win.document.close();
-};
     };
 
     // ========== تصدير Excel ==========
