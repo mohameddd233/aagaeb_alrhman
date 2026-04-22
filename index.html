@@ -1266,9 +1266,66 @@
 
     function renderAdminPanel() {
         const root = document.getElementById('root');
-        root.innerHTML = `<div class="navbar"><div class="logo-area"><div class="logo-img"><span style="font-size:30px;">🐾</span></div><span class="site-title">عجائب الرحمن - المدير</span></div><div style="display:flex; gap:10px; align-items:center;"><div class="home-btn" id="homeBtn"><i class="fas fa-home"></i> الرئيسية</div><div class="user-badge"><i class="fas fa-crown"></i> ${currentUser.fullName} <button id="logoutBtn" style="background:#e6cfb5; margin-right:10px;"><i class="fas fa-sign-out-alt"></i> خروج</button></div></div></div><div class="app-container"><div class="menu-buttons" id="adminMenu"></div><div id="dynamicSection" class="card-modern">مرحباً بك في لوحة التحكم</div></div>`;
-        const menuItems = ['users','branches','stock','addProduct','pos','invoiceSearch','allInvoices','customers','customerList','purchase','returnPurchase','purchaseInvoicesList','suppliers','suppliersList','finances','inventory','stockDistribution','notes'];
-        const menuNames = { 
+
+root.innerHTML = `
+    <div class="navbar">
+
+        <div class="logo-area">
+            <div class="logo-img">
+                <img src="logo.png" alt="logo">
+            </div>
+            <span class="site-title">
+                عجائب الرحمن - ${currentUser.role}
+            </span>
+        </div>
+
+        <div style="display:flex; gap:10px; align-items:center;">
+
+            <div class="home-btn" id="homeBtn">
+                <i class="fas fa-home"></i> الرئيسية
+            </div>
+
+            <div class="user-badge">
+                <i class="fas fa-crown"></i>
+                ${currentUser.fullName || currentUser.username}
+
+                <button id="logoutBtn" style="background:#e6cfb5; margin-right:10px;">
+                    <i class="fas fa-sign-out-alt"></i> خروج
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="app-container">
+        <div class="menu-buttons" id="adminMenu"></div>
+        <div id="dynamicSection" class="card-modern">
+            مرحباً بك في لوحة التحكم
+        </div>
+    </div>
+`;
+
+// ================= MENU =================
+const menuItems = [
+    'users',
+    'branches',
+    'stock',
+    'addProduct',
+    'pos',
+    'invoiceSearch',
+    'allInvoices',
+    'customers',
+    'customerList',
+    'purchase',
+    'returnPurchase',
+    'purchaseInvoicesList',
+    'suppliers',
+    'suppliersList',
+    'finances',
+    'inventory',
+    'stockDistribution',
+    'notes'
+];  const menuNames = { 
             users:'👥 المستخدمين', branches:'🏢 الفروع', stock:'📦 المخزن', addProduct:'➕ إضافة منتج', 
             pos:'📝 فاتورة بيع', invoiceSearch:'🔍 استرجاع فاتورة بيع', allInvoices:'📑 سجل فواتير البيع', 
             customers:'👤 تسجيل عميل', customerList:'📞 سجل العملاء', purchase:'🛒 فاتورة شراء', 
