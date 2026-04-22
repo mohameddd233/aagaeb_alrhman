@@ -1344,7 +1344,14 @@ const menuItems = [
 
     function renderEmployeePanel() {
         const root = document.getElementById('root');
-        root.innerHTML = `<div class="navbar"><div class="logo-area"><div class="logo-img"><span style="font-size:30px;">🐾</span></div><span class="site-title">عجائب الرحمن - ${currentUser.fullName}</span></div><div style="display:flex; gap:10px; align-items:center;"><div class="home-btn" id="homeBtn"><i class="fas fa-home"></i> الرئيسية</div><div class="user-badge"><i class="fas fa-user"></i> ${currentUser.role} <button id="logoutBtn" style="background:#e6cfb5;"><i class="fas fa-sign-out-alt"></i> خروج</button></div></div></div><div class="app-container"><div class="menu-buttons" id="empMenu"></div><div id="dynamicSection" class="card-modern">مرحباً بك</div></div>`;
+        root.innerHTML = `
+    <div class="navbar">
+
+        <div class="logo-area">
+            <div class="logo-img">
+                <img src="logo.png" alt="logo">
+            </div>
+            <span class="site-title"> - ${currentUser.fullName}</span></div><div style="display:flex; gap:10px; align-items:center;"><div class="home-btn" id="homeBtn"><i class="fas fa-home"></i> الرئيسية</div><div class="user-badge"><i class="fas fa-user"></i> ${currentUser.role} <button id="logoutBtn" style="background:#e6cfb5;"><i class="fas fa-sign-out-alt"></i> خروج</button></div></div></div><div class="app-container"><div class="menu-buttons" id="empMenu"></div><div id="dynamicSection" class="card-modern">مرحباً بك</div></div>`;
         const allEmpItems = { 'pos':'📝 فاتورة بيع', 'customers':'👤 تسجيل عميل', 'customerList':'📞 سجل العملاء', 'invoiceSearch':'🔍 استرجاع فاتورة بيع', 'stock':'📦 عرض المخزن', 'addProduct':'➕ إضافة منتج', 'allInvoices':'📑 سجل فواتير البيع', 'notes':'📝 الملحوظات' };
         let perms = currentUser.permissions || [];
         let menuHtml = '';
