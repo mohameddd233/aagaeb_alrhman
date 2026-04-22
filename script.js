@@ -1,4 +1,4 @@
-// ========== بيانات التخزين المحلي ==========
+// ========== بيانات التخزين المحلي ==========// ========== بيانات التخزين المحلي ==========
 let users = JSON.parse(localStorage.getItem('users')) || [
     { 
         id: 1, 
@@ -20,16 +20,100 @@ let users = JSON.parse(localStorage.getItem('users')) || [
 
 let branches = JSON.parse(localStorage.getItem('branches')) || [{ id: 1, name: 'الفرع الرئيسي - القاهرة' }];
 
+// ========== ترقية المنتجات القديمة لنظام الدُفعات ==========
 let products = JSON.parse(localStorage.getItem('products')) || [];
+
+// دالة ترقية المنتجات القديمة إلى نظام الدُفعات
+function upgradeProductsToBatches() {
+    let needsSave = false;
+    products.forEach(p => {
+        if (!p.batches) {
+            // تحويل المنتج القديم إلى نظام الدُفعات
+            p.batches = [];
+            if (p.stock > 0) {
+                p.batches.push({
+                    id: 1,
+                    quantity: p.stock,
+                    expiryDate: p.expiryDate || null,
+                    purchaseDate: new Date().toISOString().split('T')[0],
+                    purchasePrice: p.priceWholesale || 0
+                });
+            }
+            needsSave = true;
+        }
+        // تحديث المخزون الإجمالي
+        p.stock = p.batches.reduce((sum, b) => sum + b.quantity, 0);
+    });
+    if (needsSave) {
+        localStorage.setItem('products', JSON.stringify(products));
+    }
+}
+
 if (products.length === 0) {
     products = [
-        { id: 1, name: 'طعام قطط 2كجم', priceWholesale: 75, priceRetail: 85, stock: 20, image: '🐱', imageType: 'emoji', expiryDate: '2025-01-01' },
-        { id: 2, name: 'طعام كلاب 3كجم', priceWholesale: 100, priceRetail: 120, stock: 15, image: '🐕', imageType: 'emoji', expiryDate: '2025-01-01' },
-        { id: 3, name: 'مشط للكلاب', priceWholesale: 25, priceRetail: 35, stock: 30, image: '🪮', imageType: 'emoji', expiryDate: '2026-01-01' },
-        { id: 4, name: 'لعبة قطط', priceWholesale: 18, priceRetail: 25, stock: 40, image: '🧸', imageType: 'emoji', expiryDate: '2026-01-01' },
-        { id: 5, name: 'شنطة نقل قطط', priceWholesale: 200, priceRetail: 250, stock: 8, image: '🎒', imageType: 'emoji', expiryDate: '2026-01-01' }
+        { 
+            id: 1, 
+            name: 'طعام قطط 2كجم', 
+            priceWholesale: 75, 
+            priceRetail: 85, 
+            image: '🐱', 
+            imageType: 'emoji',
+            batches: [
+                { id: 1, quantity: 10, expiryDate: '2025-06-01', purchaseDate: '2024-01-01', purchasePrice: 60 },
+                { id: 2, quantity: 10, expiryDate: '2025-12-01', purchaseDate: '2024-03-01', purchasePrice: 65 }
+            ]
+        },
+        { 
+            id: 2, 
+            name: 'طعام كلاب 3كجم', 
+            priceWholesale: 100, 
+            priceRetail: 120, 
+            image: '🐕', 
+            imageType: 'emoji',
+            batches: [
+                { id: 1, quantity: 8, expiryDate: '2025-08-15', purchaseDate: '2024-02-01', purchasePrice: 80 },
+                { id: 2, quantity: 7, expiryDate: '2026-01-10', purchaseDate: '2024-04-01', purchasePrice: 85 }
+            ]
+        },
+        { 
+            id: 3, 
+            name: 'مشط للكلاب', 
+            priceWholesale: 25, 
+            priceRetail: 35, 
+            image: '🪮', 
+            imageType: 'emoji',
+            batches: [
+                { id: 1, quantity: 30, expiryDate: '2027-01-01', purchaseDate: '2024-01-01', purchasePrice: 15 }
+            ]
+        },
+        { 
+            id: 4, 
+            name: 'لعبة قطط', 
+            priceWholesale: 18, 
+            priceRetail: 25, 
+            image: '🧸', 
+            imageType: 'emoji',
+            batches: [
+                { id: 1, quantity: 40, expiryDate: '2027-01-01', purchaseDate: '2024-01-01', purchasePrice: 10 }
+            ]
+        },
+        { 
+            id: 5, 
+            name: 'شنطة نقل قطط', 
+            priceWholesale: 200, 
+            priceRetail: 250, 
+            image: '🎒', 
+            imageType: 'emoji',
+            batches: [
+                { id: 1, quantity: 8, expiryDate: '2028-01-01', purchaseDate: '2024-01-01', purchasePrice: 150 }
+            ]
+        }
     ];
+    products.forEach(p => p.stock = p.batches.reduce((s, b) => s + b.quantity, 0));
 }
+
+// تنفيذ الترقية
+upgradeProductsToBatches();
 
 let customers = JSON.parse(localStorage.getItem('customers')) || [];
 let suppliers = JSON.parse(localStorage.getItem('suppliers')) || [
@@ -62,10 +146,46 @@ const availablePermissions = [
     { id: 'notes', name: '📝 الملحوظات' }
 ];
 
+// ---------- دوال مساعدة للتاريخ ----------
+function isExpiringSoon(expiryDate) {
+    if (!expiryDate) return false;
+    const exp = new Date(expiryDate);
+    const today = new Date();
+    const twoMonthsFromNow = new Date();
+    twoMonthsFromNow.setMonth(today.getMonth() + 2);
+    return exp <= twoMonthsFromNow && exp >= today;
+}
+
+function isExpired(expiryDate) {
+    if (!expiryDate) return false;
+    const exp = new Date(expiryDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return exp < today;
+}
+
+function getExpiryStatus(expiryDate) {
+    if (!expiryDate) return { text: '', class: '' };
+    if (isExpired(expiryDate)) return { text: '⚠️ منتهي', class: 'expiry-danger' };
+    if (isExpiringSoon(expiryDate)) return { text: '⏰ قريب', class: 'expiry-warning' };
+    return { text: '✅ صالح', class: '' };
+}
+
 // ---------- دوال مساعدة ----------
 function genId(arr) { return arr.length ? Math.max(...arr.map(i => i.id)) + 1 : 1; }
 
+function updateTotalStock() {
+    products.forEach(p => {
+        if (p.batches && p.batches.length > 0) {
+            p.stock = p.batches.reduce((sum, b) => sum + b.quantity, 0);
+        } else {
+            p.stock = 0;
+        }
+    });
+}
+
 function saveAll() {
+    updateTotalStock();
     localStorage.setItem('users', JSON.stringify(users));
     localStorage.setItem('branches', JSON.stringify(branches));
     localStorage.setItem('products', JSON.stringify(products));
@@ -87,13 +207,6 @@ function showMsg(text, isError = false) {
     setTimeout(() => msg.remove(), 2500);
 }
 
-function showMsgDialog(content) {
-    let dialog = document.createElement('div');
-    dialog.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:3000;';
-    dialog.innerHTML = `<div style="background:white; border-radius:20px; max-width:500px; width:90%; max-height:80vh; overflow:auto; padding:20px;">${content}<button onclick="this.closest('div').parentElement.remove()" style="margin-top:15px; width:100%; padding:10px; background:#c7a86b; color:white; border:none; border-radius:40px; cursor:pointer;">إغلاق</button></div>`;
-    document.body.appendChild(dialog);
-}
-
 function hasPermission(permission) {
     if (!currentUser) return false;
     if (currentUser.role === 'مدير') return true;
@@ -109,12 +222,104 @@ function goToHome() {
     }
 }
 
-function calculateTotalSales() {
-    return invoices.filter(i => !i.isReturned).reduce((s, i) => s + (i.finalTotal || i.total || 0), 0);
+// ========== دالة خصم من المخزون حسب FIFO (الأقدم صلاحية أولاً) ==========
+function deductStockFIFO(productId, quantity) {
+    let product = products.find(p => p.id === productId);
+    if (!product) return false;
+    
+    if (!product.batches) {
+        product.batches = [];
+        return false;
+    }
+    
+    // ترتيب الدُفعات حسب تاريخ الصلاحية (الأقدم أولاً)
+    let sortedBatches = [...product.batches].sort((a, b) => {
+        if (!a.expiryDate) return 1;
+        if (!b.expiryDate) return -1;
+        return new Date(a.expiryDate) - new Date(b.expiryDate);
+    });
+    
+    let remainingToDeduct = quantity;
+    let deductedBatches = [];
+    
+    for (let batch of sortedBatches) {
+        if (remainingToDeduct <= 0) break;
+        
+        if (batch.quantity > 0) {
+            let deductFromBatch = Math.min(batch.quantity, remainingToDeduct);
+            batch.quantity -= deductFromBatch;
+            remainingToDeduct -= deductFromBatch;
+            
+            deductedBatches.push({
+                batchId: batch.id,
+                quantity: deductFromBatch,
+                expiryDate: batch.expiryDate
+            });
+        }
+    }
+    
+    // حذف الدُفعات الفارغة
+    product.batches = product.batches.filter(b => b.quantity > 0);
+    
+    // تحديث المخزون الإجمالي
+    product.stock = product.batches.reduce((s, b) => s + b.quantity, 0);
+    
+    saveAll();
+    return { success: remainingToDeduct === 0, deductedBatches };
 }
 
-function calculateTotalPurchases() {
-    return purchaseInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+// ========== دالة إرجاع للمخزون ==========
+function returnStockFIFO(productId, quantity, expiryDate = null) {
+    let product = products.find(p => p.id === productId);
+    if (!product) return false;
+    
+    if (!product.batches) {
+        product.batches = [];
+    }
+    
+    if (expiryDate) {
+        let existingBatch = product.batches.find(b => b.expiryDate === expiryDate);
+        if (existingBatch) {
+            existingBatch.quantity += quantity;
+        } else {
+            product.batches.push({
+                id: genId(product.batches),
+                quantity: quantity,
+                expiryDate: expiryDate,
+                purchaseDate: new Date().toISOString().split('T')[0],
+                purchasePrice: product.priceWholesale || 0
+            });
+        }
+    } else {
+        if (product.batches.length > 0) {
+            product.batches.sort((a, b) => new Date(a.expiryDate || '9999') - new Date(b.expiryDate || '9999'));
+            product.batches[0].quantity += quantity;
+        } else {
+            product.batches.push({
+                id: 1,
+                quantity: quantity,
+                expiryDate: null,
+                purchaseDate: new Date().toISOString().split('T')[0],
+                purchasePrice: product.priceWholesale || 0
+            });
+        }
+    }
+    
+    product.stock = product.batches.reduce((s, b) => s + b.quantity, 0);
+    saveAll();
+    return true;
+}
+
+function updateStockFromCart(cartItems, isReturn = false) {
+    for (let item of cartItems) {
+        if (isReturn) {
+            returnStockFIFO(item.id, item.qty, item.expiryDate);
+        } else {
+            deductStockFIFO(item.id, item.qty);
+        }
+    }
+    saveAll();
+    checkProductAlerts();
 }
 
 function checkProductAlerts() {
@@ -123,33 +328,42 @@ function checkProductAlerts() {
     twoMonthsFromNow.setMonth(today.getMonth() + 2);
     
     products.forEach(product => {
-        if (product.expiryDate) {
-            const expiryDate = new Date(product.expiryDate);
-            if (expiryDate <= twoMonthsFromNow && expiryDate >= today) {
-                const existingAlert = notes.find(n => 
-                    n.type === 'expiry_alert' && 
-                    n.productId === product.id &&
-                    !n.read
-                );
-                
-                if (!existingAlert) {
-                    notes.push({
-                        id: genId(notes),
-                        type: 'expiry_alert',
-                        title: '⚠️ تنبيه صلاحية',
-                        content: `المنتج "${product.name}" سينتهي صلاحيته في ${product.expiryDate}`,
-                        productId: product.id,
-                        productName: product.name,
-                        date: new Date().toISOString(),
-                        read: false,
-                        from: 'system',
-                        to: 'all'
-                    });
+        // فحص تواريخ الصلاحية لكل الدُفعات
+        if (product.batches && product.batches.length > 0) {
+            product.batches.forEach(batch => {
+                if (batch.expiryDate) {
+                    const expiryDate = new Date(batch.expiryDate);
+                    if (expiryDate <= twoMonthsFromNow && expiryDate >= today) {
+                        const existingAlert = notes.find(n => 
+                            n.type === 'expiry_alert' && 
+                            n.productId === product.id &&
+                            n.batchId === batch.id &&
+                            !n.read
+                        );
+                        
+                        if (!existingAlert) {
+                            notes.push({
+                                id: genId(notes),
+                                type: 'expiry_alert',
+                                title: '⚠️ تنبيه صلاحية',
+                                content: `المنتج "${product.name}" - دفعة ${batch.id} ستنتهي صلاحيتها في ${batch.expiryDate} (الكمية: ${batch.quantity})`,
+                                productId: product.id,
+                                batchId: batch.id,
+                                productName: product.name,
+                                date: new Date().toISOString(),
+                                read: false,
+                                from: 'system',
+                                to: 'all'
+                            });
+                        }
+                    }
                 }
-            }
+            });
         }
         
-        if (product.stock < 20) {
+        // فحص المخزون المنخفض
+        const totalStock = product.stock || 0;
+        if (totalStock < 20) {
             const existingAlert = notes.find(n => 
                 n.type === 'low_stock_alert' && 
                 n.productId === product.id &&
@@ -161,7 +375,7 @@ function checkProductAlerts() {
                     id: genId(notes),
                     type: 'low_stock_alert',
                     title: '📉 تنبيه نقص مخزون',
-                    content: `المنتج "${product.name}" مخزونه منخفض (${product.stock} قطعة فقط)`,
+                    content: `المنتج "${product.name}" مخزونه منخفض (${totalStock} قطعة فقط)`,
                     productId: product.id,
                     productName: product.name,
                     date: new Date().toISOString(),
@@ -174,25 +388,6 @@ function checkProductAlerts() {
     });
     
     saveAll();
-}
-
-function updateStockFromCart(cartItems, isReturn = false) {
-    for (let item of cartItems) {
-        let prod = products.find(p => p.id === item.id);
-        if (prod) {
-            if (isReturn) {
-                prod.stock += item.qty;
-            } else {
-                prod.stock -= item.qty;
-                if (prod.stock < 0) {
-                    console.error(`خطأ: المخزون سالب للمنتج ${prod.name}`);
-                    prod.stock = 0;
-                }
-            }
-        }
-    }
-    saveAll();
-    checkProductAlerts();
 }
 
 function createSaleInvoice(customerPhone, customerName = '', cartItems = null, saleType = 'retail') {
@@ -244,8 +439,7 @@ function returnInvoice(invoiceId) {
     if (invoice.isReturned) { showMsg('هذه الفاتورة مرتجعة بالفعل', true); return false; }
     
     for (let item of invoice.items) {
-        let prod = products.find(p => p.id === item.id);
-        if (prod) prod.stock += item.qty;
+        returnStockFIFO(item.id, item.qty, item.expiryDate);
     }
     
     invoice.isReturned = true;
@@ -289,9 +483,7 @@ function printInvoice(invoice) {
         <style>
             body { font-family: 'Cairo', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f5f5f5; margin: 0; padding: 20px; }
             .receipt { width: 320px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
-            .receipt img.logo { width: 70px; height: 70px; object-fit: contain; margin-bottom: 5px; }
             .receipt h3 { margin: 5px 0; color: #333; font-size: 1.2rem; }
-            .receipt .shop-info { font-size: 0.7rem; color: #666; margin-bottom: 10px; }
             .receipt table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.75rem; }
             .receipt th { background: #f0e5d8; padding: 5px; border-bottom: 1px solid #ccc; }
             .receipt td { padding: 4px; border-bottom: 1px dashed #ddd; }
@@ -299,7 +491,8 @@ function printInvoice(invoice) {
             .receipt .cashier { margin-top: 15px; font-size: 0.7rem; border-top: 1px dashed #ccc; padding-top: 10px; }
         </style></head><body>
         <div class="receipt">
-            <img src="logo2.png" style="width:60px;height:60px;object-fit:contain;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'60\' height=\'60\'%3E%3Crect width=\'60\' height=\'60\' fill=\'%23f0e5d8\'/%3E%3Ctext x=\'30\' y=\'40\' font-size=\'30\' text-anchor=\'middle\' fill=\'%23aa7b4b\'%3E🐾%3C/text%3E%3C/svg%3E'">
+            <div style="font-size:40px;">🐾</div>
+            <h3>عجائب الرحمن</h3>
             <p style="font-size:0.7rem; margin:5px 0;">فاتورة رقم: ${invoice.id}<br>التاريخ: ${invoice.date}<br>العميل: ${invoice.customerName || 'نقدي'}<br>${invoice.customerPhone ? `📞 ${invoice.customerPhone}` : ''}</p>
             <table>
                 <thead><tr><th>الصنف</th><th>العدد</th><th>السعر</th><th>الإجمالي</th></tr></thead>
@@ -366,8 +559,9 @@ function showInvoiceDetailsDialog(invoice) {
     `;
 
     content.innerHTML = `
-        <div class="compact-invoice">
-            <img src="logo2.png" style="width:60px;height:60px;object-fit:contain;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'60\\' height=\\'60\\'%3E%3Crect width=\\'60\\' height=\\'60\\' fill=\\'%23f0e5d8\\'/%3E%3Ctext x=\\'30\\' y=\\'40\\' font-size=\\'30\\' text-anchor=\\'middle\\' fill=\\'%23aa7b4b\\'%3E🐾%3C/text%3E%3C/svg%3E'">            
+        <div class="compact-invoice" style="text-align:center;">
+            <div style="font-size:40px;">🐾</div>
+            <h3 style="margin:5px 0; color:#aa7b4b;">عجائب الرحمن</h3>
             <p style="font-size:0.75rem;">
                 فاتورة رقم: ${invoice.id}<br>
                 التاريخ: ${invoice.date}<br>
@@ -404,12 +598,8 @@ function showInvoiceDetailsDialog(invoice) {
             </p>
         </div>
         <div style="margin-top:15px;display:flex;gap:10px;">
-            <button class="close-dialog-btn" style="flex:1; padding:12px; background:#e7d9cb; border:none; border-radius:40px; cursor:pointer; font-size:1rem;">
-                إغلاق
-            </button>
-            <button class="print-dialog-btn" style="flex:1; padding:12px; background:#c7a86b; color:white; border:none; border-radius:40px; cursor:pointer; font-size:1rem;">
-                🖨️ طباعة
-            </button>
+            <button class="close-dialog-btn" style="flex:1; padding:12px; background:#e7d9cb; border:none; border-radius:40px; cursor:pointer;">إغلاق</button>
+            <button class="print-dialog-btn" style="flex:1; padding:12px; background:#c7a86b; color:white; border:none; border-radius:40px; cursor:pointer;">🖨️ طباعة</button>
         </div>
     `;
 
@@ -417,23 +607,9 @@ function showInvoiceDetailsDialog(invoice) {
     document.body.appendChild(overlay);
 
     const closeDialog = () => overlay.remove();
-
     content.querySelector('.close-dialog-btn')?.addEventListener('click', closeDialog);
-    content.querySelector('.print-dialog-btn')?.addEventListener('click', () => {
-        printInvoice(invoice);
-        closeDialog();
-    });
-
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) closeDialog();
-    });
-
-    document.addEventListener('keydown', function escClose(e) {
-        if (e.key === 'Escape') {
-            closeDialog();
-            document.removeEventListener('keydown', escClose);
-        }
-    });
+    content.querySelector('.print-dialog-btn')?.addEventListener('click', () => { printInvoice(invoice); closeDialog(); });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeDialog(); });
 }
 
 // ========== عرض منتجات الجملة ==========
@@ -454,7 +630,7 @@ function showWholesaleProductsModal() {
                 <strong style="font-size:1.2rem; color:#2c5f8a;">${p.priceWholesale} ج.م</strong>
                 <br><small>سعر الجملة</small>
             </div>
-            ${p.stock < 20 ? '<span class="alert-badge" style="display:inline-block; margin-top:10px;">⚠️ مخزون منخفض</span>' : ''}
+            ${(p.stock || 0) < 20 ? '<span class="alert-badge" style="display:inline-block; margin-top:10px;">⚠️ مخزون منخفض</span>' : ''}
         </div>
     `).join('');
     
@@ -462,26 +638,18 @@ function showWholesaleProductsModal() {
         <div class="modal-content" style="width:90%; max-width:1200px;">
             <div class="modal-header">
                 <h2 style="border:none; margin:0;">📦 منتجات الجملة</h2>
-                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
-                    <i class="fas fa-times"></i>
-                </button>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
             </div>
-            <div class="product-grid">
-                ${productsGrid}
-            </div>
+            <div class="product-grid">${productsGrid}</div>
             <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
-                <button class="primary" onclick="printProductList('wholesale')">
-                    <i class="fas fa-print"></i> طباعة PDF
-                </button>
+                <button class="primary" onclick="printProductList('wholesale')">🖨️ طباعة PDF</button>
                 <button onclick="this.closest('.modal-overlay').remove()">إغلاق</button>
             </div>
         </div>
     `;
-    
     document.body.appendChild(modal);
 }
 
-// ========== عرض منتجات القطاعي ==========
 function showRetailProductsModal() {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -499,7 +667,7 @@ function showRetailProductsModal() {
                 <strong style="font-size:1.2rem; color:#b85c1a;">${p.priceRetail} ج.م</strong>
                 <br><small>سعر القطاعي</small>
             </div>
-            ${p.stock < 20 ? '<span class="alert-badge" style="display:inline-block; margin-top:10px;">⚠️ مخزون منخفض</span>' : ''}
+            ${(p.stock || 0) < 20 ? '<span class="alert-badge" style="display:inline-block; margin-top:10px;">⚠️ مخزون منخفض</span>' : ''}
         </div>
     `).join('');
     
@@ -507,26 +675,18 @@ function showRetailProductsModal() {
         <div class="modal-content" style="width:90%; max-width:1200px;">
             <div class="modal-header">
                 <h2 style="border:none; margin:0;">🛍️ منتجات القطاعي</h2>
-                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
-                    <i class="fas fa-times"></i>
-                </button>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
             </div>
-            <div class="product-grid">
-                ${productsGrid}
-            </div>
+            <div class="product-grid">${productsGrid}</div>
             <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
-                <button class="primary" onclick="printProductList('retail')">
-                    <i class="fas fa-print"></i> طباعة PDF
-                </button>
+                <button class="primary" onclick="printProductList('retail')">🖨️ طباعة PDF</button>
                 <button onclick="this.closest('.modal-overlay').remove()">إغلاق</button>
             </div>
         </div>
     `;
-    
     document.body.appendChild(modal);
 }
 
-// دالة طباعة قائمة المنتجات
 window.printProductList = function(type) {
     const productsList = products.map(p => ({
         name: p.name,
@@ -537,58 +697,23 @@ window.printProductList = function(type) {
     let win = window.open('', '_blank');
     let productsHtml = productsList.map(p => `
         <tr>
-            <td>
-                ${p.image && p.image.startsWith('data:image') ? 
-                    `<img src="${p.image}" style="width:50px;height:50px;object-fit:cover;border-radius:8px;">` : 
-                    `<span style="font-size:30px;">${p.image || '🐾'}</span>`
-                }
-            </td>
+            <td>${p.image && p.image.startsWith('data:image') ? `<img src="${p.image}" style="width:50px;height:50px;object-fit:cover;border-radius:8px;">` : `<span style="font-size:30px;">${p.image || '🐾'}</span>`}</td>
             <td>${p.name}</td>
             <td>${p.price} ج.م</td>
         </tr>
     `).join('');
     
     win.document.write(`
-        <html dir="rtl">
-        <head>
-            <meta charset="UTF-8">
-            <title>قائمة المنتجات - ${type === 'wholesale' ? 'جملة' : 'قطاعي'}</title>
-            <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-            <style>
-                body { font-family: 'Cairo', sans-serif; padding: 20px; }
-                h1 { color: #8b6946; text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
-                th { background: #f0e5d8; }
-            </style>
-        </head>
-        <body>
-            <h1>قائمة المنتجات - ${type === 'wholesale' ? 'أسعار الجملة' : 'أسعار القطاعي'}</h1>
-            <table>
-                <thead>
-                    <tr>
-                        <th>الصورة</th>
-                        <th>المنتج</th>
-                        <th>السعر</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${productsHtml}
-                </tbody>
-            </table>
-            <script>
-                window.onload = function() {
-                    window.print();
-                    setTimeout(() => window.close(), 500);
-                };
-            <\/script>
-        </body>
-        </html>
+        <html dir="rtl"><head><meta charset="UTF-8"><title>قائمة المنتجات</title>
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+        <style>body{font-family:'Cairo',sans-serif;padding:20px}h1{color:#8b6946;text-align:center}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #ddd;padding:12px;text-align:center}th{background:#f0e5d8}</style>
+        </head><body><h1>قائمة المنتجات - ${type === 'wholesale' ? 'أسعار الجملة' : 'أسعار القطاعي'}</h1>
+        <table><thead><tr><th>الصورة</th><th>المنتج</th><th>السعر</th></tr></thead><tbody>${productsHtml}</tbody></table>
+        <script>window.onload=function(){window.print();setTimeout(()=>window.close(),500)}<\/script></body></html>
     `);
     win.document.close();
 };
 
-// ========== تصدير Excel ==========
 function exportToExcel(data, filename, headers) {
     if (!data || data.length === 0) { showMsg('لا توجد بيانات للتصدير', true); return; }
     let wsData = [headers];
@@ -605,13 +730,13 @@ function exportToExcel(data, filename, headers) {
 function render() {
     const root = document.getElementById('root');
     if (currentView === 'loginChoice') {
-        root.innerHTML = `<div class="login-container"><div class="card-modern login-card"><div class="logo-img" style="margin:0 auto 20px; width:80px; height:80px;"><img src="logo.png" onerror="this.src='https://placehold.co/80x80/ebddcf?text=🐾'" alt="logo"></div><h2 style="border:none">عجائب الرحمن</h2><p style="margin-bottom:30px; color:#8b6946;">   </p><div style="display:flex; gap:20px; justify-content:center;"><button class="primary" id="choiceAdmin"><i class="fas fa-user-cog"></i> مدير</button><button class="primary" id="choiceEmployee"><i class="fas fa-user"></i> موظف</button></div></div></div>`;
+        root.innerHTML = `<div class="login-container"><div class="card-modern login-card"><div class="logo-img" style="margin:0 auto 20px; width:80px; height:80px;"><span style="font-size:50px;">🐾</span></div><h2 style="border:none">عجائب الرحمن</h2><p style="margin-bottom:30px; color:#8b6946;">نظام إدارة متجر الحيوانات الأليفة</p><div style="display:flex; gap:20px; justify-content:center;"><button class="primary" id="choiceAdmin">👑 مدير</button><button class="primary" id="choiceEmployee">👤 موظف</button></div></div></div>`;
         document.getElementById('choiceAdmin')?.addEventListener('click', () => { currentView = 'loginForm'; render(); });
         document.getElementById('choiceEmployee')?.addEventListener('click', () => { currentView = 'loginForm'; render(); });
         return;
     }
     if (currentView === 'loginForm') {
-        root.innerHTML = `<div class="login-container"><div class="card-modern login-card"><div style="margin:0 auto 20px;"><img src="logo.png" style="width:70px;height:70px;object-fit:cover;border-radius:20px;" onerror="this.src='https://placehold.co/70x70/ebddcf?text=🐾'" alt="logo"></div><h2 style="border:none">تسجيل الدخول</h2><input type="text" id="loginUser" placeholder="اسم المستخدم" autocomplete="off"><input type="password" id="loginPass" placeholder="كلمة المرور"><button class="primary" id="doLoginBtn" style="width:100%"><i class="fas fa-sign-in-alt"></i> دخول</button></div></div>`;
+        root.innerHTML = `<div class="login-container"><div class="card-modern login-card"><div style="margin:0 auto 20px;"><span style="font-size:70px;">🐾</span></div><h2 style="border:none">تسجيل الدخول</h2><input type="text" id="loginUser" placeholder="اسم المستخدم"><input type="password" id="loginPass" placeholder="كلمة المرور"><button class="primary" id="doLoginBtn" style="width:100%">🔐 دخول</button></div></div>`;
         document.getElementById('doLoginBtn')?.addEventListener('click', () => {
             let uname = document.getElementById('loginUser').value;
             let pwd = document.getElementById('loginPass').value;
@@ -632,17 +757,18 @@ function render() {
 
 function renderAdminPanel() {
     const root = document.getElementById('root');
-    root.innerHTML = `<div class="navbar"><div class="logo-area"><div class="logo-img"><img src="logo.png" onerror="this.src='https://placehold.co/48x48/ebddcf?text=🐾'" alt="logo"></div><span class="site-title">عجائب الرحمن - المدير</span></div><div style="display:flex; gap:10px; align-items:center;"><div class="home-btn" id="homeBtn"><i class="fas fa-home"></i> الرئيسية</div><div class="user-badge"><i class="fas fa-crown"></i> ${currentUser.fullName} <button id="logoutBtn" style="background:#e6cfb5; margin-right:10px;"><i class="fas fa-sign-out-alt"></i> خروج</button></div></div></div><div class="app-container"><div class="menu-buttons" id="adminMenu"></div><div id="dynamicSection" class="card-modern">مرحباً بك في لوحة التحكم</div></div>`;
+    root.innerHTML = `<div class="navbar"><div class="logo-area"><div class="logo-img"><span style="font-size:30px;">🐾</span></div><span class="site-title">عجائب الرحمن - المدير</span></div><div style="display:flex; gap:10px; align-items:center;"><div class="home-btn" id="homeBtn">🏠 الرئيسية</div><div class="user-badge">👑 ${currentUser.fullName} <button id="logoutBtn" style="background:#e6cfb5; margin-right:10px;">🚪 خروج</button></div></div></div><div class="app-container"><div class="menu-buttons" id="adminMenu"></div><div id="dynamicSection" class="card-modern">مرحباً بك في لوحة التحكم</div></div>`;
     const menuItems = ['users','branches','stock','addProduct','pos','invoiceSearch','allInvoices','customers','customerList','purchase','returnPurchase','purchaseInvoicesList','suppliers','suppliersList','finances','inventory','stockDistribution','notes'];
     const menuNames = { 
         users:'👥 المستخدمين', branches:'🏢 الفروع', stock:'📦 المخزن', addProduct:'➕ إضافة منتج', 
-        pos:'📝 فاتورة بيع', invoiceSearch:'🔍 استرجاع فاتورة بيع', allInvoices:'📑 سجل فواتير البيع', 
+        pos:'📝 فاتورة بيع', invoiceSearch:'🔍 استرجاع فاتورة', allInvoices:'📑 سجل فواتير البيع', 
         customers:'👤 تسجيل عميل', customerList:'📞 سجل العملاء', purchase:'🛒 فاتورة شراء', 
-        returnPurchase:'↩️ استرجاع فاتورة شراء', purchaseInvoicesList:'📜 سجل فواتير الشراء', 
-        suppliers:'🏭 إدارة موردين', suppliersList:'📇 سجل الموردين', finances:'💰 الماليات', 
+        returnPurchase:'↩️ استرجاع شراء', purchaseInvoicesList:'📜 سجل المشتريات', 
+        suppliers:'🏭 الموردين', suppliersList:'📇 سجل الموردين', finances:'💰 الماليات', 
         inventory:'📋 حركة المخزون', stockDistribution:'🚚 توزيع مخزون', notes:'📝 الملحوظات' 
     };
-    let menuHtml = ''; menuItems.forEach(item => { menuHtml += `<button data-section="${item}">${menuNames[item]}</button>`; });
+    let menuHtml = ''; 
+    menuItems.forEach(item => { menuHtml += `<button data-section="${item}">${menuNames[item]}</button>`; });
     document.getElementById('adminMenu').innerHTML = menuHtml;
     document.getElementById('logoutBtn')?.addEventListener('click', () => { currentUser = null; currentView = 'loginChoice'; render(); });
     document.getElementById('homeBtn')?.addEventListener('click', goToHome);
@@ -653,18 +779,16 @@ function renderAdminPanel() {
 
 function renderEmployeePanel() {
     const root = document.getElementById('root');
-    root.innerHTML = `<div class="navbar"><div class="logo-area"><div class="logo-img"><img src="logo.png" onerror="this.src='https://placehold.co/48x48/ebddcf?text=🐾'" alt="logo"></div><span class="site-title">عجائب الرحمن - ${currentUser.fullName}</span></div><div style="display:flex; gap:10px; align-items:center;"><div class="home-btn" id="homeBtn"><i class="fas fa-home"></i> الرئيسية</div><div class="user-badge"><i class="fas fa-user"></i> ${currentUser.role} <button id="logoutBtn" style="background:#e6cfb5;"><i class="fas fa-sign-out-alt"></i> خروج</button></div></div></div><div class="app-container"><div class="menu-buttons" id="empMenu"></div><div id="dynamicSection" class="card-modern">مرحباً بك</div></div>`;
-    const allEmpItems = { 'pos':'📝 فاتورة بيع', 'customers':'👤 تسجيل عميل', 'customerList':'📞 سجل العملاء', 'invoiceSearch':'🔍 استرجاع فاتورة بيع', 'stock':'📦 عرض المخزن', 'addProduct':'➕ إضافة منتج', 'allInvoices':'📑 سجل فواتير البيع', 'notes':'📝 الملحوظات' };
+    root.innerHTML = `<div class="navbar"><div class="logo-area"><div class="logo-img"><span style="font-size:30px;">🐾</span></div><span class="site-title">عجائب الرحمن - ${currentUser.fullName}</span></div><div style="display:flex; gap:10px; align-items:center;"><div class="home-btn" id="homeBtn">🏠 الرئيسية</div><div class="user-badge">👤 ${currentUser.role} <button id="logoutBtn" style="background:#e6cfb5;">🚪 خروج</button></div></div></div><div class="app-container"><div class="menu-buttons" id="empMenu"></div><div id="dynamicSection" class="card-modern">مرحباً بك</div></div>`;
+    const allEmpItems = { 'pos':'📝 فاتورة بيع', 'customers':'👤 تسجيل عميل', 'customerList':'📞 سجل العملاء', 'invoiceSearch':'🔍 استرجاع فاتورة', 'stock':'📦 عرض المخزن', 'addProduct':'➕ إضافة منتج', 'allInvoices':'📑 سجل الفواتير', 'notes':'📝 الملحوظات' };
     let perms = currentUser.permissions || [];
     let menuHtml = '';
     if (perms.includes('all')) {
         Object.keys(allEmpItems).forEach(k => menuHtml += `<button data-section="${k}">${allEmpItems[k]}</button>`);
     } else {
-        perms.forEach(p => { 
-            if(allEmpItems[p]) menuHtml += `<button data-section="${p}">${allEmpItems[p]}</button>`; 
-        });
+        perms.forEach(p => { if(allEmpItems[p]) menuHtml += `<button data-section="${p}">${allEmpItems[p]}</button>`; });
     }
-    document.getElementById('empMenu').innerHTML = menuHtml || '<p style="color:#b85c1a;">⚠️ لا توجد صلاحيات متاحة لهذا المستخدم</p>';
+    document.getElementById('empMenu').innerHTML = menuHtml || '<p style="color:#b85c1a;">⚠️ لا توجد صلاحيات</p>';
     document.getElementById('logoutBtn')?.addEventListener('click', () => { currentUser = null; currentView = 'loginChoice'; render(); });
     document.getElementById('homeBtn')?.addEventListener('click', goToHome);
     document.querySelectorAll('[data-section]').forEach(btn => btn.addEventListener('click', (e) => loadSection(e.target.dataset.section)));
@@ -676,8 +800,8 @@ function renderEmployeePanel() {
 function loadSection(section) {
     const container = document.getElementById('dynamicSection');
     if (!container) return;
-    if (!hasPermission(section) && section !== 'branches' && section !== 'purchase' && section !== 'returnPurchase' && section !== 'purchaseInvoicesList' && section !== 'suppliers' && section !== 'suppliersList' && section !== 'finances' && section !== 'inventory' && section !== 'users' && section !== 'stockDistribution' && section !== 'notes') {
-        container.innerHTML = '<h2 style="color:#b85c1a;">⛔ غير مصرح لك بالوصول لهذه الصفحة</h2>';
+    if (!hasPermission(section) && !['branches','purchase','returnPurchase','purchaseInvoicesList','suppliers','suppliersList','finances','inventory','users','stockDistribution','notes'].includes(section)) {
+        container.innerHTML = '<h2 style="color:#b85c1a;">⛔ غير مصرح لك بالوصول</h2>';
         return;
     }
     if (section === 'users') renderUsers(container);
@@ -714,8 +838,8 @@ function renderUsers(container) {
     });
     const listUsers = () => {
         let userListDiv = document.getElementById('usersList');
-        if (userListDiv) userListDiv.innerHTML = users.map(u => `<div style="margin:15px 0; padding:15px; background:#fefaf5; border-radius:12px;"><div style="display:flex; justify-content:space-between; align-items:start;"><div><strong>${u.fullName}</strong> (${u.username})<br><small>الدور: ${u.role}</small><br><small style="color:#666;">الصلاحيات: ${u.role === 'مدير' ? 'كل الصلاحيات' : (u.permissions || []).map(p => availablePermissions.find(ap => ap.id === p)?.name || p).join(' - ')}</small></div><div><button class="primary editUserBtn" data-id="${u.id}" style="margin-left:5px; padding:5px 12px;">✏️</button><button class="danger deleteUserBtn" data-id="${u.id}" style="padding:5px 12px;">🗑️</button></div></div></div>`).join('');
-        document.querySelectorAll('.deleteUserBtn').forEach(btn => { btn.addEventListener('click', () => { if (confirm('هل أنت متأكد من حذف هذا المستخدم؟')) { users = users.filter(u => u.id != btn.dataset.id); saveAll(); listUsers(); showMsg('تم حذف المستخدم'); } }); });
+        if (userListDiv) userListDiv.innerHTML = users.map(u => `<div style="margin:15px 0; padding:15px; background:#fefaf5; border-radius:12px;"><div style="display:flex; justify-content:space-between;"><div><strong>${u.fullName}</strong> (${u.username})<br><small>الدور: ${u.role}</small><br><small>الصلاحيات: ${u.role === 'مدير' ? 'كل الصلاحيات' : (u.permissions || []).map(p => availablePermissions.find(ap => ap.id === p)?.name || p).join(' - ')}</small></div><div><button class="primary editUserBtn" data-id="${u.id}">✏️</button><button class="danger deleteUserBtn" data-id="${u.id}">🗑️</button></div></div></div>`).join('');
+        document.querySelectorAll('.deleteUserBtn').forEach(btn => { btn.addEventListener('click', () => { if (confirm('حذف المستخدم؟')) { users = users.filter(u => u.id != btn.dataset.id); saveAll(); listUsers(); showMsg('تم الحذف'); } }); });
         document.querySelectorAll('.editUserBtn').forEach(btn => { btn.addEventListener('click', () => { let userId = +btn.dataset.id; let user = users.find(u => u.id === userId); if (user) { document.getElementById('uname').value = user.username; document.getElementById('ufullname').value = user.fullName; document.getElementById('upass').value = user.password; document.getElementById('urole').value = user.role; if (user.role === 'موظف') { document.getElementById('permissionsSection').style.display = 'block'; showPermissionsCheckboxes(user.permissions || []); } let addBtn = document.getElementById('addUserBtn'); addBtn.textContent = '✏️ تحديث المستخدم'; addBtn.dataset.editId = userId; } }); });
     };
     document.getElementById('addUserBtn')?.addEventListener('click', () => {
@@ -729,173 +853,108 @@ function renderUsers(container) {
                 if (user) { user.username = un; user.fullName = fn; user.password = up; user.role = ur; user.permissions = ur === 'مدير' ? ['all'] : selectedPerms; }
                 delete document.getElementById('addUserBtn').dataset.editId;
                 document.getElementById('addUserBtn').textContent = '➕ إضافة مستخدم';
-                showMsg('تم تحديث المستخدم');
+                showMsg('تم التحديث');
             } else {
                 users.push({ id: genId(users), username: un, fullName: fn, password: up, role: ur, permissions: ur === 'مدير' ? ['all'] : selectedPerms });
-                showMsg('تمت إضافة المستخدم');
+                showMsg('تمت الإضافة');
             }
             saveAll(); listUsers();
             document.getElementById('uname').value = ''; document.getElementById('ufullname').value = ''; document.getElementById('upass').value = ''; document.getElementById('urole').value = 'موظف'; document.getElementById('permissionsSection').style.display = 'none';
-        } else showMsg('أكمل جميع البيانات', true);
+        } else showMsg('أكمل البيانات', true);
     });
     listUsers();
 }
 
 function renderBranches(container) {
-    container.innerHTML = `<h2>الفروع</h2><input id="branchName" placeholder="اسم الفرع"><button class="primary" id="addBranchBtn">➕ إضافة فرع</button><div id="branchesList" style="margin-top:20px;"></div>`;
-    const list = () => { document.getElementById('branchesList').innerHTML = branches.map(b => `<div style="margin:10px 0; padding:10px; background:#fefaf5; border-radius:10px; display:flex; justify-content:space-between; align-items:center;">${b.name} <button class="danger" data-id="${b.id}" style="padding:5px 15px;">حذف</button></div>`).join(''); document.querySelectorAll('[data-id]').forEach(btn => btn.addEventListener('click', () => { branches = branches.filter(b => b.id != btn.dataset.id); saveAll(); list(); showMsg('تم حذف الفرع'); })); };
-    document.getElementById('addBranchBtn')?.addEventListener('click', () => { let n = document.getElementById('branchName').value; if (n) { branches.push({ id: genId(branches), name: n }); saveAll(); list(); document.getElementById('branchName').value = ''; showMsg('تمت الإضافة'); } else showMsg('أدخل اسم الفرع', true); });
+    container.innerHTML = `<h2>الفروع</h2><input id="branchName" placeholder="اسم الفرع"><button class="primary" id="addBranchBtn">➕ إضافة</button><div id="branchesList" style="margin-top:20px;"></div>`;
+    const list = () => { document.getElementById('branchesList').innerHTML = branches.map(b => `<div style="margin:10px 0; padding:10px; background:#fefaf5; border-radius:10px; display:flex; justify-content:space-between;">${b.name} <button class="danger" data-id="${b.id}">حذف</button></div>`).join(''); document.querySelectorAll('[data-id]').forEach(btn => btn.addEventListener('click', () => { branches = branches.filter(b => b.id != btn.dataset.id); saveAll(); list(); })); };
+    document.getElementById('addBranchBtn')?.addEventListener('click', () => { let n = document.getElementById('branchName').value; if (n) { branches.push({ id: genId(branches), name: n }); saveAll(); list(); document.getElementById('branchName').value = ''; } });
     list();
 }
 
-// نافذة تعديل السعر
 function showPriceEditModal(product) {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
-    
     modal.innerHTML = `
         <div class="price-edit-modal">
-            <div class="modal-header">
-                <h3 style="margin:0;">✏️ تعديل أسعار: ${product.name}</h3>
-                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            
-            <div class="price-comparison">
-                <h4>💰 الأسعار الحالية</h4>
-                <p>سعر الجملة: <strong>${product.priceWholesale} ج.م</strong></p>
-                <p>سعر القطاعي: <strong>${product.priceRetail} ج.م</strong></p>
-            </div>
-            
-            <div style="margin-top:20px;">
-                <label>سعر الجملة الجديد (ج.م)</label>
-                <input type="number" id="editWholesalePrice" value="${product.priceWholesale}" min="0" step="0.01">
-                
-                <label>سعر القطاعي الجديد (ج.م)</label>
-                <input type="number" id="editRetailPrice" value="${product.priceRetail}" min="0" step="0.01">
-            </div>
-            
-            <div style="display:flex; gap:10px; margin-top:25px;">
-                <button class="primary" id="savePriceEditBtn" style="flex:2;">💾 حفظ التعديلات</button>
-                <button class="danger" onclick="this.closest('.modal-overlay').remove()" style="flex:1;">إلغاء</button>
-            </div>
-        </div>
-    `;
-    
+            <div class="modal-header"><h3>✏️ تعديل أسعار: ${product.name}</h3><button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button></div>
+            <div class="price-comparison"><h4>💰 الأسعار الحالية</h4><p>سعر الجملة: <strong>${product.priceWholesale} ج.م</strong></p><p>سعر القطاعي: <strong>${product.priceRetail} ج.م</strong></p></div>
+            <div><label>سعر الجملة الجديد</label><input type="number" id="editWholesalePrice" value="${product.priceWholesale}" min="0" step="0.01"><label>سعر القطاعي الجديد</label><input type="number" id="editRetailPrice" value="${product.priceRetail}" min="0" step="0.01"></div>
+            <div style="display:flex; gap:10px; margin-top:25px;"><button class="primary" id="savePriceEditBtn">💾 حفظ</button><button class="danger" onclick="this.closest('.modal-overlay').remove()">إلغاء</button></div>
+        </div>`;
     document.body.appendChild(modal);
-    
-    const wholesaleInput = document.getElementById('editWholesalePrice');
-    const retailInput = document.getElementById('editRetailPrice');
-    
     document.getElementById('savePriceEditBtn')?.addEventListener('click', () => {
-        const newWholesalePrice = parseFloat(wholesaleInput.value) || 0;
-        const newRetailPrice = parseFloat(retailInput.value) || 0;
-        
-        if (newWholesalePrice <= 0 || newRetailPrice <= 0) {
-            showMsg('الأسعار يجب أن تكون أكبر من صفر', true);
-            return;
-        }
-        
-        product.priceWholesale = newWholesalePrice;
-        product.priceRetail = newRetailPrice;
-        
-        saveAll();
-        showMsg(`✅ تم تحديث أسعار ${product.name}`);
-        modal.remove();
-        renderStock(document.getElementById('dynamicSection'));
+        const newWholesale = parseFloat(document.getElementById('editWholesalePrice').value) || 0;
+        const newRetail = parseFloat(document.getElementById('editRetailPrice').value) || 0;
+        if (newWholesale <= 0 || newRetail <= 0) { showMsg('الأسعار يجب أن تكون أكبر من صفر', true); return; }
+        product.priceWholesale = newWholesale; product.priceRetail = newRetail;
+        saveAll(); showMsg(`✅ تم تحديث أسعار ${product.name}`); modal.remove(); renderStock(document.getElementById('dynamicSection'));
     });
 }
 
 function renderStock(container) {
+    updateTotalStock();
     container.innerHTML = `<h2>المخزن والمنتجات</h2>
     <div style="display:flex; gap:10px; margin-bottom:20px;">
-        <button class="primary" id="showWholesaleBtn"><i class="fas fa-box"></i> عرض منتجات الجملة</button>
-        <button class="primary" id="showRetailBtn"><i class="fas fa-shopping-cart"></i> عرض منتجات القطاعي</button>
+        <button class="primary" id="showWholesaleBtn">📦 منتجات الجملة</button>
+        <button class="primary" id="showRetailBtn">🛍️ منتجات القطاعي</button>
     </div>
     <div class="flex-wrap"><input id="searchProduct" placeholder="بحث باسم المنتج" style="flex:1"><button class="primary" id="clearSearchBtn">مسح</button></div>
     <div id="stockTableContainer"></div>`;
     
     const renderTable = (filteredProducts) => {
         const tableContainer = document.getElementById('stockTableContainer');
-        if (filteredProducts.length === 0) {
-            tableContainer.innerHTML = '<p style="text-align:center; margin-top:30px; color:#999;">🔍 ابحث عن منتج لعرضه</p>';
-            return;
-        }
+        if (filteredProducts.length === 0) { tableContainer.innerHTML = '<p style="text-align:center; margin-top:30px;">🔍 ابحث عن منتج</p>'; return; }
         
-        tableContainer.innerHTML = `<table><thead><tr><th>الصورة</th><th>المنتج</th><th>سعر الجملة</th><th>سعر القطاعي</th><th>الكمية</th><th>تاريخ الانتهاء</th><th>تعديل السعر</th>${hasPermission('addProduct') ? '<th>حذف</th>' : ''}</tr></thead><tbody id="stockTableBody"></tbody></table>`;
+        tableContainer.innerHTML = `<table><thead><tr><th>الصورة</th><th>المنتج</th><th>سعر الجملة</th><th>سعر القطاعي</th><th>الكمية</th><th>الدُفعات</th><th>تعديل</th>${hasPermission('addProduct') ? '<th>حذف</th>' : ''}</tr></thead><tbody id="stockTableBody"></tbody></table>`;
         
         const tbody = document.getElementById('stockTableBody');
         tbody.innerHTML = filteredProducts.map(p => {
-            const isLowStock = p.stock < 20;
-            const expiryDate = p.expiryDate ? new Date(p.expiryDate) : null;
-            const today = new Date();
-            const twoMonthsFromNow = new Date();
-            twoMonthsFromNow.setMonth(today.getMonth() + 2);
-            const isExpiringSoon = expiryDate && expiryDate <= twoMonthsFromNow && expiryDate >= today;
+            let batchesHtml = '';
+            if (p.batches && p.batches.length > 0) {
+                batchesHtml = p.batches.map(b => {
+                    const status = getExpiryStatus(b.expiryDate);
+                    return `<div style="display:flex; justify-content:space-between; padding:3px; background:white; border-radius:5px; margin:2px 0;">
+                        <span>${b.quantity} قطعة</span>
+                        <span class="${status.class}">${b.expiryDate || '-'} ${status.text}</span>
+                    </div>`;
+                }).join('');
+            }
             
             return `<tr>
-                <td style="text-align:center;">${p.image && p.image.startsWith('data:image') ? `<img src="${p.image}" style="width:40px; height:40px; object-fit:cover; border-radius:8px;">` : `<span style="font-size:30px;">${p.image || '🐾'}</span>`}</td>
-                <td>${p.name} ${isLowStock ? '<span style="color:#b85c1a;">⚠️</span>' : ''} ${isExpiringSoon ? '<span style="color:#f39c12;">⏰</span>' : ''}</td>
-                <td>${p.priceWholesale} ج.م <span class="price-badge price-wholesale">جملة</span></td>
-                <td>${p.priceRetail} ج.م <span class="price-badge price-retail">قطاعي</span></td>
-                <td style="color:${isLowStock ? '#b85c1a' : 'inherit'}; font-weight:${isLowStock ? 'bold' : 'normal'};">${p.stock}</td>
-                <td style="color:${isExpiringSoon ? '#f39c12' : 'inherit'};">${p.expiryDate || '-'}</td>
-                <td><button class="info editPriceBtn" data-id="${p.id}" style="padding:4px 12px;"><i class="fas fa-edit"></i> تعديل</button></td>
-                ${hasPermission('addProduct') ? `<td><button class="danger deleteProductBtn" data-id="${p.id}" style="padding:4px 12px;">🗑️</button></td>` : ''}
+                <td>${p.image && p.image.startsWith('data:image') ? `<img src="${p.image}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;">` : `<span style="font-size:30px;">${p.image || '🐾'}</span>`}</td>
+                <td>${p.name} ${(p.stock || 0) < 20 ? '<span style="color:#b85c1a;">⚠️</span>' : ''}</td>
+                <td>${p.priceWholesale} ج.م</td>
+                <td>${p.priceRetail} ج.م</td>
+                <td>${p.stock || 0}</td>
+                <td>${batchesHtml || '<small>لا توجد دُفعات</small>'}</td>
+                <td><button class="info editPriceBtn" data-id="${p.id}">✏️</button></td>
+                ${hasPermission('addProduct') ? `<td><button class="danger deleteProductBtn" data-id="${p.id}">🗑️</button></td>` : ''}
             </tr>`;
         }).join('');
         
-        document.querySelectorAll('.editPriceBtn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const productId = +btn.dataset.id;
-                const product = products.find(p => p.id === productId);
-                if (product) showPriceEditModal(product);
-            });
-        });
-        
+        document.querySelectorAll('.editPriceBtn').forEach(btn => btn.addEventListener('click', () => { const p = products.find(p => p.id === +btn.dataset.id); if (p) showPriceEditModal(p); }));
         if (hasPermission('addProduct')) {
-            document.querySelectorAll('.deleteProductBtn').forEach(btn => { 
-                btn.addEventListener('click', () => { 
-                    if (confirm('هل أنت متأكد من حذف هذا المنتج؟')) { 
-                        products = products.filter(p => p.id != btn.dataset.id); 
-                        saveAll(); 
-                        renderStock(container); 
-                        showMsg('تم حذف المنتج'); 
-                    } 
-                }); 
-            });
+            document.querySelectorAll('.deleteProductBtn').forEach(btn => btn.addEventListener('click', () => { if (confirm('حذف المنتج؟')) { products = products.filter(p => p.id != btn.dataset.id); saveAll(); renderStock(container); } }));
         }
     };
 
     renderTable([]);
-    
     document.getElementById('showWholesaleBtn')?.addEventListener('click', showWholesaleProductsModal);
     document.getElementById('showRetailBtn')?.addEventListener('click', showRetailProductsModal);
-
-    document.getElementById('searchProduct').addEventListener('input', (e) => {
-        const searchTerm = e.target.value.toLowerCase();
-        const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm));
-        renderTable(filtered);
-    });
-    
-    document.getElementById('clearSearchBtn').addEventListener('click', () => {
-        document.getElementById('searchProduct').value = '';
-        renderTable([]);
-    });
+    document.getElementById('searchProduct').addEventListener('input', (e) => renderTable(products.filter(p => p.name.toLowerCase().includes(e.target.value.toLowerCase()))));
+    document.getElementById('clearSearchBtn').addEventListener('click', () => { document.getElementById('searchProduct').value = ''; renderTable([]); });
 }
 
 function renderAddProduct(container) {
-    if (!hasPermission('addProduct')) { container.innerHTML = '<h2 style="color:#b85c1a;">⛔ غير مصرح لك بإضافة منتجات</h2>'; return; }
-    container.innerHTML = `<h2>إضافة منتج جديد</h2><div class="grid-2"><div><input id="pName" placeholder="اسم المنتج"><input id="pPriceWholesale" placeholder="سعر الجملة" type="number"><input id="pPriceRetail" placeholder="سعر القطاعي" type="number"><input id="pStock" placeholder="الكمية" type="number"><input id="pExpiryDate" placeholder="تاريخ الانتهاء" type="date"><div style="margin:15px 0;"><label style="display:block; margin-bottom:8px;">صورة المنتج:</label><input type="file" id="pImage" accept="image/*" style="padding:8px;"><div id="imagePreview" style="margin-top:10px; text-align:center;"></div></div><button class="primary" id="saveProduct">💾 حفظ المنتج</button></div><div><h3>نصائح</h3><p>- اختر صورة واضحة للمنتج</p><p>- سعر الجملة: للكميات الكبيرة</p><p>- سعر القطاعي: للبيع العادي</p><p>- تاريخ الانتهاء مهم للمتابعة</p></div></div>`;
+    if (!hasPermission('addProduct')) { container.innerHTML = '<h2 style="color:#b85c1a;">⛔ غير مصرح</h2>'; return; }
+    container.innerHTML = `<h2>إضافة منتج جديد</h2><div class="grid-2"><div><input id="pName" placeholder="اسم المنتج"><input id="pPriceWholesale" placeholder="سعر الجملة" type="number"><input id="pPriceRetail" placeholder="سعر القطاعي" type="number"><input id="pStock" placeholder="الكمية الأولية" type="number"><input id="pExpiryDate" type="date"><div><input type="file" id="pImage" accept="image/*"><div id="imagePreview"></div></div><button class="primary" id="saveProduct">💾 حفظ</button></div><div><h3>نصائح</h3><p>- الكمية الأولية ستضاف كدفعة أولى</p></div></div>`;
     
     document.getElementById('pImage')?.addEventListener('change', function(e) { 
         let file = e.target.files[0]; 
         if (file) { 
             let reader = new FileReader(); 
-            reader.onload = function(event) { 
-                document.getElementById('imagePreview').innerHTML = `<img src="${event.target.result}" style="max-width:150px; max-height:150px; border-radius:12px;"><p style="margin-top:5px; font-size:0.8rem;">${file.name}</p>`; 
-            }; 
+            reader.onload = (e) => document.getElementById('imagePreview').innerHTML = `<img src="${e.target.result}" style="max-width:150px; border-radius:12px;">`; 
             reader.readAsDataURL(file); 
         } 
     });
@@ -908,564 +967,292 @@ function renderAddProduct(container) {
         let expDate = document.getElementById('pExpiryDate').value;
         let imageFile = document.getElementById('pImage').files[0];
         
-        if (n && pw && pr && !isNaN(pw) && !isNaN(pr)) {
-            if (imageFile) { 
-                let reader = new FileReader(); 
-                reader.onload = function(event) { 
-                    products.push({ 
-                        id: genId(products), 
-                        name: n, 
-                        priceWholesale: pw, 
-                        priceRetail: pr, 
-                        stock: st, 
-                        image: event.target.result, 
-                        imageType: 'file',
-                        expiryDate: expDate
-                    }); 
-                    saveAll(); 
-                    checkProductAlerts();
-                    showMsg('✅ تمت إضافة المنتج مع الصورة'); 
-                    renderStock(document.getElementById('dynamicSection')); 
-                }; 
-                reader.readAsDataURL(imageFile); 
-            }
-            else { 
+        if (n && pw && pr) {
+            const createProduct = (img) => {
+                const newId = genId(products);
                 products.push({ 
-                    id: genId(products), 
-                    name: n, 
-                    priceWholesale: pw, 
-                    priceRetail: pr, 
-                    stock: st, 
-                    image: '🐾', 
-                    imageType: 'emoji',
-                    expiryDate: expDate
-                }); 
-                saveAll(); 
-                checkProductAlerts();
-                showMsg('✅ تمت إضافة المنتج (بدون صورة)'); 
+                    id: newId, name: n, priceWholesale: pw, priceRetail: pr, 
+                    image: img, imageType: imageFile ? 'file' : 'emoji',
+                    batches: st > 0 ? [{ id: 1, quantity: st, expiryDate: expDate || null, purchaseDate: new Date().toISOString().split('T')[0], purchasePrice: pw }] : []
+                });
+                updateTotalStock();
+                saveAll(); checkProductAlerts();
+                showMsg('✅ تمت الإضافة'); 
                 renderStock(document.getElementById('dynamicSection')); 
-            }
-        } else showMsg('الاسم وسعر الجملة وسعر القطاعي مطلوبة', true);
+            };
+            if (imageFile) { let reader = new FileReader(); reader.onload = (e) => createProduct(e.target.result); reader.readAsDataURL(imageFile); }
+            else createProduct('🐾');
+        } else showMsg('الاسم والأسعار مطلوبة', true);
     });
 }
 
 function renderPOS(container) {
-    let cartHtml = cart.map((item, idx) => `<div class="cart-item"><span style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">${item.image && item.image.startsWith('data:image') ? `<img src="${item.image}" style="width:30px; height:30px; object-fit:cover; border-radius:6px;">` : `<span style="font-size:24px;">${item.image || '🐾'}</span>`} ${item.name} <span class="price-badge ${item.saleType === 'wholesale' ? 'price-wholesale' : 'price-retail'}">${item.saleType === 'wholesale' ? 'جملة' : 'قطاعي'}</span> x${item.qty}</span><span>${item.price * item.qty} ج.م</span><button class="danger removeFromCartBtn" data-idx="${idx}"><i class="fas fa-trash"></i></button></div>`).join('');
+    let cartHtml = cart.map((item, idx) => `<div class="cart-item"><span>${item.image?.startsWith('data:image') ? `<img src="${item.image}" style="width:30px;height:30px;border-radius:6px;">` : item.image || '🐾'} ${item.name} <span class="price-badge ${item.saleType === 'wholesale' ? 'price-wholesale' : 'price-retail'}">${item.saleType === 'wholesale' ? 'جملة' : 'قطاعي'}</span> x${item.qty}</span><span>${item.price * item.qty} ج.م</span><button class="danger removeFromCartBtn" data-idx="${idx}">🗑️</button></div>`).join('');
     
     let subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
     let discountValue = subtotal * (discountPercent / 100);
-    let afterDiscount = subtotal - discountValue;
-    let finalTotal = afterDiscount + taxAmount;
+    let finalTotal = subtotal - discountValue + taxAmount;
     let remaining = Math.max(0, paidAmount - finalTotal);
     
-    container.innerHTML = `<h2>نقطة البيع -📝 فاتورة بيع</h2>
-<div class="grid-2">
-    <div>
-        <h3>المنتجات المتاحة</h3>
-        <input id="searchProductPOS" placeholder="🔍 ابحث عن منتج..." style="width:100%; padding:10px; margin-bottom:10px; border-radius:10px; border:1px solid #ddd; font-size:1rem;">
-        <div class="grid-3" id="productsContainer"></div>
-    </div>
-    <div>
-        <h3>سلة المشتريات</h3>
-        <div id="cartItems" style="max-height:400px; overflow-y:auto;">${cartHtml || '🛒 السلة فارغة'}</div>
-        <div class="flex-between" style="margin:15px 0;">
-            <strong>الإجمالي الفرعي: <span id="subtotalDisplay">${subtotal}</span> ج.م</strong>
-            ${cart.length > 0 ? `<button class="danger" id="clearCartTopBtn">🗑️ تفريغ</button>` : ''}
-        </div>
-        <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
-            <label>💰 نسبة الخصم (%)</label>
-            <input id="discountInput" type="number" min="0" max="100" step="0.1" value="${discountPercent}" style="width:100%;">
-            <small>قيمة الخصم: <span id="discountValueDisplay">${discountValue.toFixed(2)}</span> ج.م</small>
-        </div>
-        <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
-            <label>💵 الضريبة (ج.م)</label>
-            <input id="taxInput" type="number" min="0" step="0.01" value="${taxAmount}" style="width:100%;">
-        </div>
-        <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
-            <label>💳 المبلغ المدفوع (ج.م) *</label>
-            <input id="paidInput" type="number" min="0" step="0.01" value="${paidAmount}" style="width:100%;" required>
-        </div>
-        <div class="flex-between" style="margin:15px 0; padding:10px; background:#e8f5e9; border-radius:10px;">
-            <strong>الإجمالي النهائي:</strong>
-            <strong style="color:#2c5f2d;"><span id="finalTotalDisplay">${finalTotal.toFixed(2)}</span> ج.م</strong>
-        </div>
-        <div class="flex-between" style="margin:15px 0; padding:10px; background:#fff3e0; border-radius:10px;">
-            <strong>💰 الباقي:</strong>
-            <strong style="color:#f57c00;"><span id="remainingDisplay">${remaining.toFixed(2)}</span> ج.م</strong>
-        </div>
-        <input id="custPhone" placeholder="📱 رقم العميل *" required>
-        <input id="custName" placeholder="الاسم (اختياري)">
-        <div style="display:flex; gap:10px;">
-            <button class="primary" id="finalizeBtn" ${cart.length === 0 ? 'disabled' : ''} style="flex:2;">إنهاء الفاتورة</button>
-            <button class="danger" id="clearCartBottomBtn" ${cart.length === 0 ? 'disabled' : ''} style="flex:1;">تفريغ</button>
-        </div>
-    </div>
-</div>`;
+    container.innerHTML = `<h2>نقطة البيع</h2><div class="grid-2"><div><h3>المنتجات</h3><input id="searchProductPOS" placeholder="🔍 بحث..."><div class="grid-3" id="productsContainer"></div></div><div><h3>السلة</h3><div id="cartItems">${cartHtml || '🛒 فارغة'}</div><div class="flex-between"><strong>الإجمالي: ${subtotal} ج.م</strong>${cart.length ? '<button class="danger" id="clearCartBtn">🗑️ تفريغ</button>' : ''}</div>
+    <div><label>خصم %</label><input id="discountInput" type="number" value="${discountPercent}"></div>
+    <div><label>ضريبة</label><input id="taxInput" type="number" value="${taxAmount}"></div>
+    <div><label>مدفوع</label><input id="paidInput" type="number" value="${paidAmount}"></div>
+    <div><strong>الإجمالي النهائي: ${finalTotal.toFixed(2)} ج.م</strong></div>
+    <div><strong>الباقي: ${remaining.toFixed(2)} ج.م</strong></div>
+    <input id="custPhone" placeholder="📱 رقم العميل *"><input id="custName" placeholder="الاسم">
+    <button class="primary" id="finalizeBtn" ${cart.length === 0 ? 'disabled' : ''}>✅ إنهاء</button></div></div>`;
 
     const renderProducts = (search = '') => {
-        const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
-        document.getElementById('productsContainer').innerHTML = filtered.map(p => {
-            let qtyInCart = cart.filter(i => i.id === p.id).reduce((sum, i) => sum + i.qty, 0);
-            let remainingStock = p.stock - qtyInCart;
-            return `<div class="product-card">
-                <div class="product-icon" style="height:100px; display:flex; align-items:center; justify-content:center;">
-                    ${p.image && p.image.startsWith('data:image') ? `<img src="${p.image}" style="width:80px; height:80px; object-fit:cover; border-radius:12px;">` : `<span style="font-size:50px;">${p.image || '🐾'}</span>`}
-                </div>
-                <div>
-                    <strong>${p.name}</strong><br>
-                    <div style="display:flex; gap:5px; justify-content:center; margin:5px 0;">
-                        <span class="price-badge price-wholesale">جملة: ${p.priceWholesale} ج.م</span>
-                        <span class="price-badge price-retail">قطاعي: ${p.priceRetail} ج.م</span>
-                    </div>
-                    <small>المخزون: ${p.stock}</small><br>
-                    ${qtyInCart > 0 ? `<small style="color:#2c5f2d;">🛒 في السلة: ${qtyInCart}</small><br>` : ''}
-                    <small style="color:#b85c1a;">المتاح: ${remainingStock}</small>
-                    <div style="display:flex; gap:5px; margin-top:8px;">
-                        <button class="addToCartBtn" data-id="${p.id}" data-type="wholesale" ${remainingStock === 0 ? 'disabled' : ''}>جملة</button>
-                        <button class="addToCartBtn" data-id="${p.id}" data-type="retail" ${remainingStock === 0 ? 'disabled' : ''}>قطاعي</button>
-                    </div>
-                </div>
-            </div>`;
+        document.getElementById('productsContainer').innerHTML = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase())).map(p => {
+            let qtyInCart = cart.filter(i => i.id === p.id).reduce((s, i) => s + i.qty, 0);
+            return `<div class="product-card"><div>${p.image?.startsWith('data:image') ? `<img src="${p.image}" style="width:50px;">` : p.image || '🐾'}</div><strong>${p.name}</strong><br>
+            <span class="price-wholesale">جملة: ${p.priceWholesale}</span> <span class="price-retail">قطاعي: ${p.priceRetail}</span><br>
+            <small>المخزون: ${p.stock || 0}</small><br>
+            <button class="addToCartBtn" data-id="${p.id}" data-type="wholesale" ${(p.stock || 0) - qtyInCart <= 0 ? 'disabled' : ''}>جملة</button>
+            <button class="addToCartBtn" data-id="${p.id}" data-type="retail" ${(p.stock || 0) - qtyInCart <= 0 ? 'disabled' : ''}>قطاعي</button></div>`;
         }).join('');
-        
-        document.querySelectorAll('.addToCartBtn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                let pid = +btn.dataset.id;
-                let saleType = btn.dataset.type;
-                let prod = products.find(p => p.id === pid);
-                if (!prod) return;
-                let price = saleType === 'wholesale' ? prod.priceWholesale : prod.priceRetail;
-                let totalQtyInCart = cart.filter(i => i.id === pid).reduce((sum, i) => sum + i.qty, 0);
-                if (totalQtyInCart + 1 > prod.stock) {
-                    showMsg(`⚠️ المخزون المتاح: ${prod.stock}`, true);
-                    return;
-                }
-                let exist = cart.find(i => i.id === pid && i.saleType === saleType);
-                if (exist) exist.qty++;
-                else {
-                    cart.push({
-                        id: prod.id,
-                        name: prod.name,
-                        price: price,
-                        qty: 1,
-                        image: prod.image,
-                        saleType: saleType,
-                        expiryDate: prod.expiryDate
-                    });
-                }
-                renderPOS(container);
-            });
-        });
-    };
-
-    const updateTotals = () => {
-        let currentSubtotal = cart.reduce((s, i) => s + (i.price * i.qty), 0);
-        let currentDiscountValue = currentSubtotal * (discountPercent / 100);
-        let currentAfterDiscount = currentSubtotal - currentDiscountValue;
-        let currentFinalTotal = currentAfterDiscount + taxAmount;
-        let currentRemaining = Math.max(0, paidAmount - currentFinalTotal);
-        document.getElementById('subtotalDisplay').textContent = currentSubtotal;
-        document.getElementById('discountValueDisplay').textContent = currentDiscountValue.toFixed(2);
-        document.getElementById('finalTotalDisplay').textContent = currentFinalTotal.toFixed(2);
-        document.getElementById('remainingDisplay').textContent = currentRemaining.toFixed(2);
+        document.querySelectorAll('.addToCartBtn').forEach(btn => btn.addEventListener('click', () => {
+            let pid = +btn.dataset.id, saleType = btn.dataset.type, prod = products.find(p => p.id === pid);
+            if (!prod) return;
+            let price = saleType === 'wholesale' ? prod.priceWholesale : prod.priceRetail;
+            if (cart.filter(i => i.id === pid).reduce((s, i) => s + i.qty, 0) + 1 > (prod.stock || 0)) { showMsg('المخزون غير كاف', true); return; }
+            let exist = cart.find(i => i.id === pid && i.saleType === saleType);
+            if (exist) exist.qty++; else {
+                let oldestBatch = prod.batches?.filter(b => b.quantity > 0).sort((a,b) => new Date(a.expiryDate||'9999') - new Date(b.expiryDate||'9999'))[0];
+                cart.push({ id: prod.id, name: prod.name, price, qty: 1, image: prod.image, saleType, expiryDate: oldestBatch?.expiryDate || null });
+            }
+            renderPOS(container);
+        }));
     };
 
     document.getElementById('searchProductPOS').addEventListener('input', (e) => renderProducts(e.target.value));
-    document.getElementById('discountInput').addEventListener('input', (e) => {
-        let value = parseFloat(e.target.value) || 0;
-        if (value < 0) value = 0;
-        if (value > 100) value = 100;
-        discountPercent = value;
-        updateTotals();
-    });
-    document.getElementById('taxInput').addEventListener('input', (e) => { taxAmount = parseFloat(e.target.value) || 0; updateTotals(); });
-    document.getElementById('paidInput').addEventListener('input', (e) => { paidAmount = parseFloat(e.target.value) || 0; updateTotals(); });
-    
-    const clearCart = () => { cart = []; discountPercent = 0; taxAmount = 0; paidAmount = 0; renderPOS(container); showMsg('تم تفريغ السلة'); };
-    document.getElementById('clearCartTopBtn')?.addEventListener('click', clearCart);
-    document.getElementById('clearCartBottomBtn')?.addEventListener('click', clearCart);
-    
+    document.getElementById('discountInput').addEventListener('input', (e) => { discountPercent = parseFloat(e.target.value) || 0; renderPOS(container); });
+    document.getElementById('taxInput').addEventListener('input', (e) => { taxAmount = parseFloat(e.target.value) || 0; renderPOS(container); });
+    document.getElementById('paidInput').addEventListener('input', (e) => { paidAmount = parseFloat(e.target.value) || 0; renderPOS(container); });
+    document.getElementById('clearCartBtn')?.addEventListener('click', () => { cart = []; discountPercent = taxAmount = paidAmount = 0; renderPOS(container); });
+    document.querySelectorAll('.removeFromCartBtn').forEach(btn => btn.addEventListener('click', () => { cart.splice(+btn.dataset.idx, 1); renderPOS(container); }));
     document.getElementById('finalizeBtn')?.addEventListener('click', () => {
-        let phone = document.getElementById('custPhone').value.trim();
-        let name = document.getElementById('custName').value.trim();
-        if (!phone) { showMsg('⚠️ لازم تدخل رقم العميل', true); return; }
-        if (!paidAmount || paidAmount <= 0) { showMsg('⚠️ لازم تدخل مبلغ مدفوع', true); return; }
-        let subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
-        let discountValue = subtotal * (discountPercent / 100);
-        let finalTotal = subtotal - discountValue + taxAmount;
-        if (paidAmount < finalTotal) { showMsg(`⚠️ المدفوع أقل من الإجمالي (${finalTotal.toFixed(2)} ج.م)`, true); return; }
+        let phone = document.getElementById('custPhone').value.trim(), name = document.getElementById('custName').value.trim();
+        if (!phone) { showMsg('رقم العميل مطلوب', true); return; }
+        if (paidAmount < finalTotal) { showMsg('المدفوع أقل من الإجمالي', true); return; }
         let inv = createSaleInvoice(phone, name, cart);
-        if (inv) {
-            printInvoice(inv);
-            cart = []; discountPercent = 0; taxAmount = 0; paidAmount = 0;
-            renderPOS(container);
-            showMsg(`✅ تم إنهاء الفاتورة رقم ${inv.id}`);
-        }
+        if (inv) { printInvoice(inv); cart = []; discountPercent = taxAmount = paidAmount = 0; renderPOS(container); }
     });
-
     renderProducts();
-    updateTotals();
 }
 
 function renderInvoiceSearch(container) {
-    if (!hasPermission('invoiceSearch')) { container.innerHTML = '<h2 style="color:#b85c1a;">⛔ غير مصرح لك بالبحث عن الفواتير</h2>'; return; }
-    container.innerHTML = `<h2>استرجاع فاتورة بيع</h2>
-    <div class="flex-wrap">
-        <input id="searchInvoiceId" placeholder="بحث برقم الفاتورة" style="flex:1">
-        <input id="searchPhone" placeholder="بحث برقم العميل" style="flex:1">
-        <select id="invoiceFilter" style="flex:1;">
-            <option value="all">كل الفواتير</option>
-            <option value="active">الفواتير النشطة فقط</option>
-            <option value="returned">الفواتير المرتجعة فقط</option>
-        </select>
-        <button class="primary" id="searchBtn">🔍 بحث</button>
-        <button class="danger" id="resetSearchBtn">عرض الكل</button>
-    </div>
-    <div id="searchResult" style="margin-top:20px;"></div>`;
+    if (!hasPermission('invoiceSearch')) { container.innerHTML = '<h2>⛔ غير مصرح</h2>'; return; }
+    container.innerHTML = `<h2>استرجاع فاتورة</h2><div class="flex-wrap"><input id="searchInvoiceId" placeholder="رقم الفاتورة"><input id="searchPhone" placeholder="رقم العميل"><select id="invoiceFilter"><option value="all">الكل</option><option value="active">نشطة</option><option value="returned">مرتجعة</option></select><button class="primary" id="searchBtn">🔍 بحث</button><button id="resetSearchBtn">عرض الكل</button></div><div id="searchResult"></div>`;
     
-    function displayInvoices(invoiceList) {
-        document.getElementById('searchResult').innerHTML = invoiceList.length ? invoiceList.map(i => `<div class="flex-between" style="border-bottom:1px solid #eee; padding:15px; background:#fefaf5; margin-bottom:10px; border-radius:10px; ${i.isReturned ? 'opacity:0.7; background:#fdebd0;' : ''}"><div><strong>فاتورة #${i.id}</strong><br>العميل: ${i.customerName || i.customerPhone}<br>رقم العميل: ${i.customerPhone || '-'}<br>الإجمالي: ${i.finalTotal || i.total} ج.م<br>المدفوع: ${i.paid || 0} ج.م<br>💰 الباقي للعميل: ${i.remaining || 0} ج.م<br>التاريخ: ${i.date}<br>${i.createdBy ? `<small>الكاشير: ${i.createdBy}</small><br>` : ''}${i.isReturned ? `<span class="badge-returned">مرتجعة</span> - تاريخ الإرجاع: ${i.returnedDate}<br>` : '<span class="badge-normal">نشطة</span>'}</div><div><button class="printInv primary" data-inv='${JSON.stringify(i)}' style="margin-bottom:5px;">🖨️ طباعة</button>${!i.isReturned ? `<button class="returnInv warning" data-id="${i.id}" style="background:#e6c76e; margin-top:5px;">↩️ استرجاع</button>` : ''}<button class="detailsInv" data-inv='${JSON.stringify(i)}' style="margin-top:5px; background:#8fbc8f; color:white;">📋 تفاصيل</button></div></div>`).join('') : '<p>❌ لا توجد فواتير</p>';
-        
+    function displayInvoices(list) {
+        document.getElementById('searchResult').innerHTML = list.length ? list.map(i => `<div style="padding:15px; background:#fefaf5; margin:10px 0; border-radius:10px; ${i.isReturned ? 'opacity:0.7;' : ''}"><div><strong>فاتورة #${i.id}</strong><br>العميل: ${i.customerName || i.customerPhone}<br>الإجمالي: ${i.finalTotal || i.total} ج.م<br>التاريخ: ${i.date}</div><div><button class="printInv primary" data-inv='${JSON.stringify(i)}'>🖨️</button>${!i.isReturned ? `<button class="returnInv warning" data-id="${i.id}">↩️ استرجاع</button>` : ''}<button class="detailsInv" data-inv='${JSON.stringify(i)}'>📋</button></div></div>`).join('') : '<p>لا توجد فواتير</p>';
         document.querySelectorAll('.printInv').forEach(btn => btn.addEventListener('click', () => printInvoice(JSON.parse(btn.dataset.inv))));
-        document.querySelectorAll('.returnInv').forEach(btn => btn.addEventListener('click', () => { 
-            if (confirm('هل أنت متأكد من استرجاع هذه الفاتورة؟ سيتم إعادة المنتجات للمخزون')) { 
-                if (returnInvoice(+btn.dataset.id)) displayInvoices(invoices); 
-            } 
-        }));
-        document.querySelectorAll('.detailsInv').forEach(btn => { 
-            btn.addEventListener('click', () => { 
-                let inv = JSON.parse(btn.dataset.inv); 
-                showInvoiceDetailsDialog(inv); 
-            }); 
-        });
+        document.querySelectorAll('.returnInv').forEach(btn => btn.addEventListener('click', () => { if (confirm('استرجاع الفاتورة؟')) { returnInvoice(+btn.dataset.id); displayInvoices(invoices); } }));
+        document.querySelectorAll('.detailsInv').forEach(btn => btn.addEventListener('click', () => showInvoiceDetailsDialog(JSON.parse(btn.dataset.inv))));
     }
     
-    document.getElementById('searchBtn')?.addEventListener('click', () => { 
-        let invoiceId = document.getElementById('searchInvoiceId').value;
-        let phone = document.getElementById('searchPhone').value;
-        let filter = document.getElementById('invoiceFilter').value;
+    document.getElementById('searchBtn')?.addEventListener('click', () => {
         let results = invoices;
+        let filter = document.getElementById('invoiceFilter').value;
         if (filter === 'active') results = results.filter(i => !i.isReturned);
         else if (filter === 'returned') results = results.filter(i => i.isReturned);
-        if (invoiceId) results = results.filter(i => i.id == invoiceId);
-        if (phone) results = results.filter(i => i.customerPhone && i.customerPhone.includes(phone));
-        displayInvoices(results); 
+        let id = document.getElementById('searchInvoiceId').value;
+        if (id) results = results.filter(i => i.id == id);
+        let phone = document.getElementById('searchPhone').value;
+        if (phone) results = results.filter(i => i.customerPhone?.includes(phone));
+        displayInvoices(results);
     });
-    
-    document.getElementById('resetSearchBtn')?.addEventListener('click', () => { 
-        document.getElementById('searchInvoiceId').value = ''; 
-        document.getElementById('searchPhone').value = ''; 
-        document.getElementById('invoiceFilter').value = 'all';
-        displayInvoices(invoices); 
-    });
-    
+    document.getElementById('resetSearchBtn')?.addEventListener('click', () => { document.getElementById('searchInvoiceId').value = ''; document.getElementById('searchPhone').value = ''; document.getElementById('invoiceFilter').value = 'all'; displayInvoices(invoices); });
     displayInvoices(invoices);
 }
 
 function renderAllInvoices(container) {
-    if (!hasPermission('allInvoices')) {
-        container.innerHTML = '<h2 style="color:#b85c1a;">⛔ غير مصرح لك بعرض سجل الفواتير</h2>';
-        return;
-    }
-    let allInvoicesList = [...invoices];
-    container.innerHTML = `
-        <h2>سجل فواتير البيع</h2>
-        <div style="display:flex; gap:10px; margin-bottom:20px;">
-            <button class="primary" id="exportSalesBtn" style="flex:1;"><i class="fas fa-file-excel"></i> تصدير Excel</button>
-        </div>
-        <div class="flex-wrap">
-            <input id="searchInvId" placeholder="بحث برقم الفاتورة" style="flex:1">
-            <input id="searchInvPhone" placeholder="بحث برقم العميل" style="flex:1">
-            <select id="invFilter" style="flex:1;">
-                <option value="all">كل الفواتير</option>
-                <option value="active">الفواتير النشطة</option>
-                <option value="returned">الفواتير المرتجعة</option>
-            </select>
-            <button id="searchInvBtn" class="primary">🔍 بحث</button>
-            <button id="resetInvBtn" class="danger">عرض الكل</button>
-        </div>
-        <div id="invoicesList">
-            ${allInvoicesList.length === 0 ? '<p>لا توجد فواتير بعد</p>' : `
-            <table style="width:100%">
-                <thead><tr><th>رقم</th><th>العميل</th><th>رقم العميل</th><th>الإجمالي</th><th>المدفوع</th><th>💰 الباقي للعميل</th><th>التاريخ</th><th>الكاشير</th><th>الحالة</th><th>إجراءات</th></tr></thead>
-                <tbody>${allInvoicesList.map(i => `
-                    <tr class="${i.isReturned ? 'returned-invoice' : ''}">
-                        <td>${i.id}</td><td>${i.customerName || '-'}</td><td>${i.customerPhone || '-'}</td>
-                        <td>${i.finalTotal || i.total} ج.م</td><td>${i.paid || 0} ج.م</td><td>${i.remaining || 0} ج.م</td>
-                        <td>${i.date}</td><td>${i.createdBy || '-'}</td>
-                        <td>${i.isReturned ? '<span class="badge-returned">مرتجعة</span>' : '<span class="badge-normal">نشطة</span>'}</td>
-                        <td>
-                            <button class="printInv primary" data-inv='${JSON.stringify(i)}' style="padding:4px 8px;">🖨️</button>
-                            ${!i.isReturned ? `<button class="returnInv warning" data-id="${i.id}" style="padding:4px 8px; margin:0 5px;">↩️</button>` : ''}
-                            <button class="detailsInv" data-inv='${JSON.stringify(i)}' style="padding:4px 8px; background:#8fbc8f; color:white;">📋</button>
-                        </td>
-                    </tr>
-                `).join('')}</tbody>
-            </table>`}
-        </div>
-    `;
+    if (!hasPermission('allInvoices')) { container.innerHTML = '<h2>⛔ غير مصرح</h2>'; return; }
+    let list = [...invoices];
+    container.innerHTML = `<h2>سجل فواتير البيع</h2><button class="primary" id="exportSalesBtn">📊 تصدير Excel</button><div class="flex-wrap"><input id="searchInvId" placeholder="رقم الفاتورة"><input id="searchInvPhone" placeholder="رقم العميل"><select id="invFilter"><option value="all">الكل</option><option value="active">نشطة</option><option value="returned">مرتجعة</option></select><button id="searchInvBtn" class="primary">🔍</button><button id="resetInvBtn">عرض الكل</button></div><div id="invoicesList">${list.length ? `<table><thead><tr><th>رقم</th><th>العميل</th><th>الإجمالي</th><th>التاريخ</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>${list.map(i => `<tr><td>${i.id}</td><td>${i.customerName||'-'}</td><td>${i.finalTotal||i.total}</td><td>${i.date}</td><td>${i.isReturned?'مرتجعة':'نشطة'}</td><td><button class="printInv primary" data-inv='${JSON.stringify(i)}'>🖨️</button>${!i.isReturned?`<button class="returnInv warning" data-id="${i.id}">↩️</button>`:''}<button class="detailsInv" data-inv='${JSON.stringify(i)}'>📋</button></td></tr>`).join('')}</tbody></table>` : '<p>لا توجد فواتير</p>'}</div>`;
     
-    function filterInvoices() {
-        let invoiceId = document.getElementById('searchInvId')?.value || '';
-        let phone = document.getElementById('searchInvPhone')?.value || '';
-        let filter = document.getElementById('invFilter')?.value || 'all';
-        let filtered = allInvoicesList;
-        if (filter === 'active') filtered = filtered.filter(i => !i.isReturned);
-        else if (filter === 'returned') filtered = filtered.filter(i => i.isReturned);
-        if (invoiceId) filtered = filtered.filter(i => i.id == invoiceId);
-        if (phone) filtered = filtered.filter(i => i.customerPhone && i.customerPhone.includes(phone));
-        document.getElementById('invoicesList').innerHTML = filtered.length === 0 ? '<p>لا توجد نتائج</p>' : `
-            <table style="width:100%">
-                <thead><tr><th>رقم</th><th>العميل</th><th>رقم العميل</th><th>الإجمالي</th><th>المدفوع</th><th>💰 الباقي للعميل</th><th>التاريخ</th><th>الكاشير</th><th>الحالة</th><th>إجراءات</th></tr></thead>
-                <tbody>${filtered.map(i => `
-                    <tr class="${i.isReturned ? 'returned-invoice' : ''}">
-                        <td>${i.id}</td><td>${i.customerName || '-'}</td><td>${i.customerPhone || '-'}</td>
-                        <td>${i.finalTotal || i.total} ج.م</td><td>${i.paid || 0} ج.م</td><td>${i.remaining || 0} ج.م</td>
-                        <td>${i.date}</td><td>${i.createdBy || '-'}</td>
-                        <td>${i.isReturned ? '<span class="badge-returned">مرتجعة</span>' : '<span class="badge-normal">نشطة</span>'}</td>
-                        <td>
-                            <button class="printInv primary" data-inv='${JSON.stringify(i)}' style="padding:4px 8px;">🖨️</button>
-                            ${!i.isReturned ? `<button class="returnInv warning" data-id="${i.id}" style="padding:4px 8px;">↩️</button>` : ''}
-                            <button class="detailsInv" data-inv='${JSON.stringify(i)}' style="padding:4px 8px; background:#8fbc8f; color:white;">📋</button>
-                        </td>
-                    </tr>
-                `).join('')}</tbody>
-            </table>`;
+    const filter = () => {
+        let filtered = list;
+        let f = document.getElementById('invFilter')?.value || 'all';
+        if (f === 'active') filtered = filtered.filter(i => !i.isReturned);
+        else if (f === 'returned') filtered = filtered.filter(i => i.isReturned);
+        let id = document.getElementById('searchInvId')?.value;
+        if (id) filtered = filtered.filter(i => i.id == id);
+        let phone = document.getElementById('searchInvPhone')?.value;
+        if (phone) filtered = filtered.filter(i => i.customerPhone?.includes(phone));
+        document.getElementById('invoicesList').innerHTML = filtered.length ? `<table><thead><tr><th>رقم</th><th>العميل</th><th>الإجمالي</th><th>التاريخ</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>${filtered.map(i => `<tr><td>${i.id}</td><td>${i.customerName||'-'}</td><td>${i.finalTotal||i.total}</td><td>${i.date}</td><td>${i.isReturned?'مرتجعة':'نشطة'}</td><td><button class="printInv primary" data-inv='${JSON.stringify(i)}'>🖨️</button>${!i.isReturned?`<button class="returnInv warning" data-id="${i.id}">↩️</button>`:''}<button class="detailsInv" data-inv='${JSON.stringify(i)}'>📋</button></td></tr>`).join('')}</tbody></table>` : '<p>لا توجد نتائج</p>';
         attachEvents();
-    }
+    };
     
-    function attachEvents() {
+    const attachEvents = () => {
         document.querySelectorAll('.printInv').forEach(btn => btn.addEventListener('click', () => printInvoice(JSON.parse(btn.dataset.inv))));
-        document.querySelectorAll('.returnInv').forEach(btn => btn.addEventListener('click', () => {
-            if (confirm('هل أنت متأكد من استرجاع هذه الفاتورة؟')) {
-                returnInvoice(+btn.dataset.id);
-                renderAllInvoices(container);
-            }
-        }));
+        document.querySelectorAll('.returnInv').forEach(btn => btn.addEventListener('click', () => { if (confirm('استرجاع؟')) { returnInvoice(+btn.dataset.id); renderAllInvoices(container); } }));
         document.querySelectorAll('.detailsInv').forEach(btn => btn.addEventListener('click', () => showInvoiceDetailsDialog(JSON.parse(btn.dataset.inv))));
-    }
+    };
     
-    document.getElementById('exportSalesBtn')?.addEventListener('click', () => {
-        let data = allInvoicesList.map(i => [i.id, i.customerName || '-', i.customerPhone || '-', i.finalTotal || i.total, i.paid || 0, i.remaining || 0, i.date, i.createdBy || '-', i.isReturned ? 'مرتجعة' : 'نشطة']);
-        exportToExcel(data, 'سجل_المبيعات', ['رقم الفاتورة', 'العميل', 'رقم العميل', 'الإجمالي', 'المدفوع', 'الباقي للعميل', 'التاريخ', 'الكاشير', 'الحالة']);
-    });
-    
-    document.getElementById('searchInvBtn')?.addEventListener('click', filterInvoices);
-    document.getElementById('resetInvBtn')?.addEventListener('click', () => {
-        document.getElementById('searchInvId').value = '';
-        document.getElementById('searchInvPhone').value = '';
-        document.getElementById('invFilter').value = 'all';
-        filterInvoices();
-    });
+    document.getElementById('exportSalesBtn')?.addEventListener('click', () => exportToExcel(list.map(i => [i.id, i.customerName||'-', i.customerPhone||'-', i.finalTotal||i.total, i.date, i.isReturned?'مرتجعة':'نشطة']), 'سجل_المبيعات', ['رقم','العميل','الهاتف','الإجمالي','التاريخ','الحالة']));
+    document.getElementById('searchInvBtn')?.addEventListener('click', filter);
+    document.getElementById('resetInvBtn')?.addEventListener('click', () => { document.getElementById('searchInvId').value = ''; document.getElementById('searchInvPhone').value = ''; document.getElementById('invFilter').value = 'all'; filter(); });
     attachEvents();
 }
 
 function renderAddCustomer(container) {
-    if (!hasPermission('customers')) { container.innerHTML = '<h2 style="color:#b85c1a;">⛔ غير مصرح لك بتسجيل العملاء</h2>'; return; }
-    container.innerHTML = `<h2>تسجيل عميل جديد</h2><div class="grid-2"><div><input id="cName" placeholder="الاسم الكامل"><input id="cPhone" placeholder="رقم الموبايل"><input id="cAddress" placeholder="العنوان"><button class="primary" id="saveCustBtn">💾 حفظ العميل</button></div><div><h3>أهمية تسجيل العملاء</h3><p>يمكنك البحث عن العميل لاحقاً برقم الهاتف</p><p>تسجيل العملاء يساعد في تقديم خدمة أفضل</p></div></div>`;
+    if (!hasPermission('customers')) { container.innerHTML = '<h2>⛔ غير مصرح</h2>'; return; }
+    container.innerHTML = `<h2>تسجيل عميل</h2><input id="cName" placeholder="الاسم"><input id="cPhone" placeholder="الهاتف"><input id="cAddress" placeholder="العنوان"><button class="primary" id="saveCustBtn">💾 حفظ</button>`;
     document.getElementById('saveCustBtn')?.addEventListener('click', () => { 
         let n = document.getElementById('cName').value, p = document.getElementById('cPhone').value, a = document.getElementById('cAddress').value; 
-        if (n && p) { customers.push({ id: genId(customers), name: n, phone: p, address: a }); saveAll(); showMsg('✅ تم تسجيل العميل'); 
+        if (n && p) { customers.push({ id: genId(customers), name: n, phone: p, address: a }); saveAll(); showMsg('✅ تم التسجيل'); 
         document.getElementById('cName').value = ''; document.getElementById('cPhone').value = ''; document.getElementById('cAddress').value = ''; } 
-        else showMsg('الاسم والرقم مطلوبان', true); 
+        else showMsg('الاسم والهاتف مطلوبان', true); 
     });
 }
 
 function renderCustomerList(container) {
-    if (!hasPermission('customerList')) { container.innerHTML = '<h2 style="color:#b85c1a;">⛔ غير مصرح لك بعرض سجل العملاء</h2>'; return; }
-    container.innerHTML = `<h2>📞 سجل العملاء</h2><div style="display:flex; gap:10px; margin-bottom:20px;"><button class="primary" id="exportCustomersBtn" style="flex:1;"><i class="fas fa-file-excel"></i> تصدير Excel</button></div><div class="flex-wrap"><input id="searchCust" placeholder="بحث بالاسم أو الرقم" style="flex:1"><button id="searchCustBtn" class="primary"><i class="fas fa-search"></i> بحث</button><button id="resetCustBtn" class="danger"><i class="fas fa-redo-alt"></i> عرض الكل</button></div><div id="custResult" style="margin-top:20px;"></div><div id="editCustomerModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:3000; align-items:center; justify-content:center;"><div style="background:white; border-radius:20px; max-width:450px; width:90%; padding:25px;"><h3 style="margin-top:0; color:#8b6946;">✏️ تعديل بيانات العميل</h3><input type="hidden" id="editCustId"><label>الاسم الكامل</label><input id="editCustName"><label>رقم الهاتف</label><input id="editCustPhone"><label>العنوان</label><input id="editCustAddress"><div style="display:flex; gap:10px; margin-top:25px;"><button class="primary" id="saveEditCustBtn">حفظ</button><button class="danger" id="cancelEditCustBtn">إلغاء</button></div></div></div>`;
-    
-    const modal = document.getElementById('editCustomerModal');
-    const editIdInput = document.getElementById('editCustId');
-    const editNameInput = document.getElementById('editCustName');
-    const editPhoneInput = document.getElementById('editCustPhone');
-    const editAddressInput = document.getElementById('editCustAddress');
-    
-    document.getElementById('cancelEditCustBtn')?.addEventListener('click', () => { modal.style.display = 'none'; });
-    modal?.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
-    document.getElementById('saveEditCustBtn')?.addEventListener('click', () => {
-        const id = +editIdInput.value, name = editNameInput.value.trim(), phone = editPhoneInput.value.trim(), address = editAddressInput.value.trim();
-        if (!name || !phone) { showMsg('الاسم ورقم الهاتف مطلوبان', true); return; }
-        const customer = customers.find(c => c.id === id);
-        if (customer) { customer.name = name; customer.phone = phone; customer.address = address; saveAll(); showMsg('✅ تم تحديث بيانات العميل'); modal.style.display = 'none'; show(customers); }
-        else showMsg('❌ العميل غير موجود', true);
-    });
-    
-    const show = (list) => { 
-        document.getElementById('custResult').innerHTML = list.length ? `<table><thead><tr><th>#</th><th>الاسم</th><th>الهاتف</th><th>العنوان</th><th>إجراءات</th></tr></thead><tbody>${list.map((c, i) => `<tr><td>${i+1}</td><td>${c.name}</td><td>${c.phone}</td><td>${c.address || '-'}</td><td><button class="primary editCustBtn" data-id="${c.id}" data-name="${c.name}" data-phone="${c.phone}" data-address="${c.address || ''}">✏️</button><button class="danger deleteCustBtn" data-id="${c.id}" data-name="${c.name}">🗑️</button></td></tr>`).join('')}</tbody></table>` : '<p>لا يوجد عملاء</p>';
-        document.querySelectorAll('.editCustBtn').forEach(btn => { btn.addEventListener('click', () => { editIdInput.value = btn.dataset.id; editNameInput.value = btn.dataset.name; editPhoneInput.value = btn.dataset.phone; editAddressInput.value = btn.dataset.address || ''; modal.style.display = 'flex'; }); });
-        document.querySelectorAll('.deleteCustBtn').forEach(btn => { btn.addEventListener('click', () => { if (confirm(`حذف ${btn.dataset.name}؟`)) { customers = customers.filter(c => c.id != btn.dataset.id); saveAll(); show(customers); } }); });
-    };
-    
-    document.getElementById('exportCustomersBtn')?.addEventListener('click', () => { let data = customers.map(c => [c.name, c.phone, c.address || '-']); exportToExcel(data, 'سجل_العملاء', ['الاسم', 'الهاتف', 'العنوان']); });
-    document.getElementById('searchCustBtn')?.addEventListener('click', () => { let q = document.getElementById('searchCust').value.trim().toLowerCase(); show(q ? customers.filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q)) : customers); });
+    if (!hasPermission('customerList')) { container.innerHTML = '<h2>⛔ غير مصرح</h2>'; return; }
+    container.innerHTML = `<h2>سجل العملاء</h2><button class="primary" id="exportCustomersBtn">📊 تصدير Excel</button><div class="flex-wrap"><input id="searchCust" placeholder="بحث"><button id="searchCustBtn">🔍</button><button id="resetCustBtn">عرض الكل</button></div><div id="custResult"></div>`;
+    const show = (list) => { document.getElementById('custResult').innerHTML = list.length ? `<table><thead><tr><th>#</th><th>الاسم</th><th>الهاتف</th><th>العنوان</th><th>حذف</th></tr></thead><tbody>${list.map((c,i) => `<tr><td>${i+1}</td><td>${c.name}</td><td>${c.phone}</td><td>${c.address||'-'}</td><td><button class="danger deleteCustBtn" data-id="${c.id}">🗑️</button></td></tr>`).join('')}</tbody></table>` : '<p>لا يوجد عملاء</p>';
+        document.querySelectorAll('.deleteCustBtn').forEach(btn => btn.addEventListener('click', () => { if (confirm('حذف؟')) { customers = customers.filter(c => c.id != btn.dataset.id); saveAll(); show(customers); } })); };
+    document.getElementById('exportCustomersBtn')?.addEventListener('click', () => exportToExcel(customers.map(c => [c.name, c.phone, c.address||'-']), 'العملاء', ['الاسم','الهاتف','العنوان']));
+    document.getElementById('searchCustBtn')?.addEventListener('click', () => { let q = document.getElementById('searchCust').value.toLowerCase(); show(q ? customers.filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q)) : customers); });
     document.getElementById('resetCustBtn')?.addEventListener('click', () => { document.getElementById('searchCust').value = ''; show(customers); });
     show(customers);
 }
 
+// ========== فاتورة الشراء المعدلة ==========
 function renderPurchase(container) {
-    let purchaseCartHtml = purchaseCart.map((item, idx) => `<div class="cart-item"><span>${item.name} x${item.qty}</span><span>${item.price * item.qty} ج.م</span><button class="danger removeFromPurchaseCartBtn" data-idx="${idx}"><i class="fas fa-trash"></i></button></div>`).join('');
+    let purchaseCartHtml = purchaseCart.map((item, idx) => {
+        const status = getExpiryStatus(item.expiryDate);
+        return `<div class="cart-item"><div><strong>${item.name}</strong><br><small>${item.qty} × ${item.price} ج.م</small><br><small class="${status.class}">📅 ${item.expiryDate || 'بدون'} ${status.text}</small></div><span>${item.price * item.qty} ج.م</span><button class="danger removeFromPurchaseCartBtn" data-idx="${idx}">🗑️</button></div>`;
+    }).join('');
+
     let subtotal = purchaseCart.reduce((s, i) => s + i.price * i.qty, 0);
     let discountValue = subtotal * (purchaseDiscountPercent / 100);
-    let afterDiscount = subtotal - discountValue;
-    let finalTotal = afterDiscount + taxAmount;
+    let finalTotal = subtotal - discountValue + taxAmount;
     let remaining = finalTotal - paidAmount;
-    
-    container.innerHTML = `<h2>فاتورة شراء من مورد</h2>
-    <div class="grid-2">
-        <div>
-            <h3>اختر المورد</h3>
-            <select id="supSelect">${suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select>
-            <h3>المنتجات المتاحة للشراء</h3>
-            <div class="grid-3">${products.map(p => `<div class="product-card">
-                <div class="product-icon">
-                    ${p.image && p.image.startsWith('data:image') ? `<img src="${p.image}" style="width:80px; height:80px; object-fit:cover; border-radius:12px;">` : `<span style="font-size:50px;">${p.image || '🐾'}</span>`}
-                </div>
-                <div>
-                    <strong>${p.name}</strong><br>
-                    <small>المخزون: ${p.stock}</small><br>
-                    <div style="margin-top:8px;">
-                        <input type="number" id="purchaseQty_${p.id}" placeholder="الكمية" min="0" value="0" style="width:80px; text-align:center;">
-                        <input type="number" id="purchasePrice_${p.id}" placeholder="السعر" min="0" step="0.01" value="${p.priceWholesale}" style="width:80px; text-align:center; margin-top:5px;">
-                        <button class="primary addToPurchaseCartBtn" data-id="${p.id}" style="width:100%; margin-top:5px; padding:5px;">➕ إضافة</button>
-                    </div>
-                </div>
-            </div>`).join('')}</div>
-        </div>
-        <div>
-            <h3>سلة المشتريات</h3>
-            <div id="purchaseCartItems" style="max-height:300px; overflow-y:auto;">${purchaseCartHtml || '🛒 سلة المشتريات فارغة'}</div>
-            <div class="flex-between" style="margin:15px 0;">
-                <strong>الإجمالي الفرعي: <span id="purchaseSubtotalDisplay">${subtotal}</span> ج.م</strong>
-                ${purchaseCart.length > 0 ? `<button class="danger" id="clearPurchaseCartBtn">🗑️ تفريغ</button>` : ''}
-            </div>
-            <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
-                <label>💰 نسبة الخصم (%)</label>
-                <input id="purchaseDiscountInput" type="number" min="0" max="100" step="0.1" value="${purchaseDiscountPercent}">
-                <small>قيمة الخصم: <span id="purchaseDiscountValueDisplay">${discountValue.toFixed(2)}</span> ج.م</small>
-            </div>
-            <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
-                <label>💵 الضريبة (ج.م)</label>
-                <input id="purchaseTaxInput" type="number" min="0" step="0.01" value="${taxAmount}">
-            </div>
-            <div style="background:#fefaf5; padding:15px; border-radius:15px; margin:15px 0;">
-                <label>💳 المدفوع للمورد (ج.م)</label>
-                <input id="purchasePaidInput" type="number" min="0" step="0.01" value="${paidAmount}">
-            </div>
-            <div class="flex-between" style="margin:15px 0; padding:10px; background:#e8f5e9; border-radius:10px;">
-                <strong>الإجمالي النهائي:</strong>
-                <strong><span id="purchaseFinalTotalDisplay">${finalTotal.toFixed(2)}</span> ج.م</strong>
-            </div>
-            <div class="flex-between" style="margin:15px 0; padding:10px; background:#fff3e0; border-radius:10px;">
-                <strong>💰 المتبقي للمورد:</strong>
-                <strong><span id="purchaseRemainingDisplay">${remaining.toFixed(2)}</span> ج.م</strong>
-            </div>
-            <button class="primary" id="commitPurchaseBtn" ${purchaseCart.length === 0 ? 'disabled' : ''} style="width:100%;">✅ تسجيل فاتورة الشراء</button>
-        </div>
-    </div>`;
-    
-    const updatePurchaseTotals = () => {
-        let currentSubtotal = purchaseCart.reduce((s, i) => s + (i.price * i.qty), 0);
-        let currentDiscountValue = currentSubtotal * (purchaseDiscountPercent / 100);
-        let currentAfterDiscount = currentSubtotal - currentDiscountValue;
-        let currentFinalTotal = currentAfterDiscount + taxAmount;
-        let currentRemaining = currentFinalTotal - paidAmount;
-        document.getElementById('purchaseSubtotalDisplay').textContent = currentSubtotal;
-        document.getElementById('purchaseDiscountValueDisplay').textContent = currentDiscountValue.toFixed(2);
-        document.getElementById('purchaseFinalTotalDisplay').textContent = currentFinalTotal.toFixed(2);
-        document.getElementById('purchaseRemainingDisplay').textContent = currentRemaining.toFixed(2);
-    };
-    
-    document.getElementById('purchaseDiscountInput')?.addEventListener('input', (e) => { purchaseDiscountPercent = parseFloat(e.target.value) || 0; updatePurchaseTotals(); });
-    document.getElementById('purchaseTaxInput')?.addEventListener('input', (e) => { taxAmount = parseFloat(e.target.value) || 0; updatePurchaseTotals(); });
-    document.getElementById('purchasePaidInput')?.addEventListener('input', (e) => { paidAmount = parseFloat(e.target.value) || 0; updatePurchaseTotals(); });
-    
-    document.querySelectorAll('.addToPurchaseCartBtn').forEach(btn => btn.addEventListener('click', () => {
-        let pid = +btn.dataset.id, prod = products.find(p => p.id === pid);
-        let qty = +document.getElementById(`purchaseQty_${pid}`).value;
-        let price = +document.getElementById(`purchasePrice_${pid}`).value;
-        if (!qty || qty <= 0) { showMsg('أدخل كمية صحيحة', true); return; }
-        if (!price || price <= 0) { showMsg('أدخل سعر شراء صحيح', true); return; }
-        let exist = purchaseCart.find(i => i.id === pid);
-        if (exist) { exist.qty += qty; exist.price = price; }
-        else { purchaseCart.push({ id: prod.id, name: prod.name, price: price, qty: qty, image: prod.image }); }
-        renderPurchase(container);
+
+    container.innerHTML = `<h2>🛒 فاتورة شراء</h2><div class="grid-2"><div><h3>المورد</h3><select id="supSelect">${suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select><h3>المنتجات</h3><div class="grid-3">${products.map(p => `<div class="product-card"><div>${p.image?.startsWith('data:image')?`<img src="${p.image}" style="width:50px;">`:p.image||'🐾'}</div><strong>${p.name}</strong><br><small>المخزون: ${p.stock||0}</small><br><button class="primary openPurchaseModalBtn" data-id="${p.id}" data-name="${p.name}" data-price="${p.priceWholesale}">➕ إضافة</button></div>`).join('')}</div></div>
+    <div><h3>سلة المشتريات</h3><div id="purchaseCartItems">${purchaseCartHtml || '🛒 فارغة'}</div>
+    <div><strong>الإجمالي: ${subtotal} ج.م</strong>${purchaseCart.length ? '<button class="danger" id="clearPurchaseCartBtn">🗑️ تفريغ</button>' : ''}</div>
+    <div><label>خصم %</label><input id="purchaseDiscountInput" type="number" value="${purchaseDiscountPercent}"></div>
+    <div><label>ضريبة</label><input id="purchaseTaxInput" type="number" value="${taxAmount}"></div>
+    <div><label>مدفوع</label><input id="purchasePaidInput" type="number" value="${paidAmount}"></div>
+    <div><strong>الإجمالي: ${finalTotal.toFixed(2)} ج.م</strong></div>
+    <div><strong>المتبقي: ${remaining.toFixed(2)} ج.م</strong></div>
+    <button class="primary" id="commitPurchaseBtn" ${purchaseCart.length === 0 ? 'disabled' : ''}>✅ تسجيل</button></div></div>
+
+    <div id="addToPurchaseModal" class="modal-overlay" style="display:none;"><div class="modal-content" style="max-width:500px;"><div class="modal-header"><h3 id="modalProductName">إضافة منتج</h3><button class="modal-close" onclick="closePurchaseModal()">✕</button></div>
+    <input type="hidden" id="modalProductId"><label>الكمية</label><input type="number" id="modalPurchaseQty" min="1" value="1"><label>سعر الشراء</label><input type="number" id="modalPurchasePrice" min="0" step="0.01"><label>📅 تاريخ الصلاحية</label><input type="date" id="modalExpiryDate"><div style="display:flex; gap:10px; margin-top:20px;"><button class="primary" id="confirmAddToPurchaseBtn">➕ إضافة</button><button class="danger" onclick="closePurchaseModal()">إلغاء</button></div></div></div>`;
+
+    window.closePurchaseModal = () => document.getElementById('addToPurchaseModal').style.display = 'none';
+
+    document.querySelectorAll('.openPurchaseModalBtn').forEach(btn => btn.addEventListener('click', () => {
+        document.getElementById('modalProductId').value = btn.dataset.id;
+        document.getElementById('modalProductName').textContent = btn.dataset.name;
+        document.getElementById('modalPurchasePrice').value = btn.dataset.price;
+        document.getElementById('modalPurchaseQty').value = 1;
+        const d = new Date(); d.setFullYear(d.getFullYear() + 1);
+        document.getElementById('modalExpiryDate').value = d.toISOString().split('T')[0];
+        document.getElementById('addToPurchaseModal').style.display = 'flex';
     }));
+
+    document.getElementById('confirmAddToPurchaseBtn')?.addEventListener('click', () => {
+        let pid = +document.getElementById('modalProductId').value;
+        let qty = +document.getElementById('modalPurchaseQty').value;
+        let price = +document.getElementById('modalPurchasePrice').value;
+        let exp = document.getElementById('modalExpiryDate').value;
+        if (!qty || qty <= 0 || !price || price <= 0) { showMsg('أدخل قيماً صحيحة', true); return; }
+        let prod = products.find(p => p.id === pid);
+        if (prod) {
+            purchaseCart.push({ id: prod.id, name: prod.name, price, qty, expiryDate: exp || null, image: prod.image });
+            closePurchaseModal();
+            renderPurchase(container);
+        }
+    });
+
+    document.querySelectorAll('.removeFromPurchaseCartBtn').forEach(btn => btn.addEventListener('click', () => { purchaseCart.splice(+btn.dataset.idx, 1); renderPurchase(container); }));
+    document.getElementById('clearPurchaseCartBtn')?.addEventListener('click', () => { purchaseCart = []; purchaseDiscountPercent = taxAmount = paidAmount = 0; renderPurchase(container); });
     
-    document.querySelectorAll('.removeFromPurchaseCartBtn').forEach(btn => btn.addEventListener('click', () => { let idx = +btn.dataset.idx; purchaseCart.splice(idx, 1); renderPurchase(container); }));
-    document.getElementById('clearPurchaseCartBtn')?.addEventListener('click', () => { purchaseCart = []; purchaseDiscountPercent = 0; taxAmount = 0; paidAmount = 0; renderPurchase(container); });
-    
+    const updateTotals = () => {
+        let s = purchaseCart.reduce((sum, i) => sum + i.price * i.qty, 0);
+        let d = s * (purchaseDiscountPercent / 100);
+        let f = s - d + taxAmount;
+        document.getElementById('purchaseSubtotalDisplay') && (document.getElementById('purchaseSubtotalDisplay').textContent = s);
+        document.getElementById('purchaseFinalTotalDisplay') && (document.getElementById('purchaseFinalTotalDisplay').textContent = f.toFixed(2));
+        document.getElementById('purchaseRemainingDisplay') && (document.getElementById('purchaseRemainingDisplay').textContent = (f - paidAmount).toFixed(2));
+    };
+
+    document.getElementById('purchaseDiscountInput')?.addEventListener('input', e => { purchaseDiscountPercent = parseFloat(e.target.value) || 0; updateTotals(); });
+    document.getElementById('purchaseTaxInput')?.addEventListener('input', e => { taxAmount = parseFloat(e.target.value) || 0; updateTotals(); });
+    document.getElementById('purchasePaidInput')?.addEventListener('input', e => { paidAmount = parseFloat(e.target.value) || 0; updateTotals(); });
+
     document.getElementById('commitPurchaseBtn')?.addEventListener('click', () => {
+        if (purchaseCart.length === 0) return;
         let supId = +document.getElementById('supSelect').value, sup = suppliers.find(s => s.id === supId);
-        let subtotal = purchaseCart.reduce((s, i) => s + i.price * i.qty, 0);
-        let discountValue = subtotal * (purchaseDiscountPercent / 100);
-        let afterDiscount = subtotal - discountValue;
-        let finalTotal = afterDiscount + taxAmount;
-        let newId = genId(purchaseInvoices);
         
         for (let item of purchaseCart) {
             let prod = products.find(p => p.id === item.id);
             if (prod) {
-                prod.stock += item.qty;
-                stockMovements.push({ id: genId(stockMovements), type: 'إيداع', productId: prod.id, productName: prod.name, quantity: item.qty, source: `مورد: ${sup?.name}`, date: new Date().toISOString().split('T')[0], recordedBy: currentUser?.fullName || '-', branch: 'الرئيسي' });
+                if (!prod.batches) prod.batches = [];
+                prod.batches.push({ id: genId(prod.batches), quantity: item.qty, expiryDate: item.expiryDate, purchaseDate: new Date().toISOString().split('T')[0], purchasePrice: item.price });
+                stockMovements.push({ id: genId(stockMovements), type: 'إيداع', productId: prod.id, productName: prod.name, quantity: item.qty, source: `مورد: ${sup?.name}`, date: new Date().toISOString().split('T')[0], recordedBy: currentUser?.fullName || '-', expiryDate: item.expiryDate });
             }
         }
         
-        purchaseInvoices.push({ id: newId, supplier: sup?.name, supplierId: supId, date: new Date().toLocaleString(), items: JSON.parse(JSON.stringify(purchaseCart)), subtotal: subtotal, discountPercent: purchaseDiscountPercent, discountValue: discountValue, tax: taxAmount, paid: paidAmount, remaining: finalTotal - paidAmount, total: finalTotal });
+        let s = purchaseCart.reduce((sum, i) => sum + i.price * i.qty, 0);
+        let d = s * (purchaseDiscountPercent / 100);
+        let f = s - d + taxAmount;
+        
+        purchaseInvoices.push({ id: genId(purchaseInvoices), supplierId: supId, supplier: sup?.name, date: new Date().toLocaleString(), items: JSON.parse(JSON.stringify(purchaseCart)), subtotal: s, discountPercent: purchaseDiscountPercent, discountValue: d, tax: taxAmount, paid: paidAmount, remaining: f - paidAmount, total: f });
+        
+        updateTotalStock();
         saveAll();
         checkProductAlerts();
-        purchaseCart = []; purchaseDiscountPercent = 0; taxAmount = 0; paidAmount = 0;
-        showMsg(`✅ تم تسجيل فاتورة الشراء رقم ${newId}`);
+        purchaseCart = []; purchaseDiscountPercent = taxAmount = paidAmount = 0;
+        showMsg('✅ تم تسجيل فاتورة الشراء');
         renderPurchase(container);
     });
 }
 
 function renderReturnPurchase(container) {
-    container.innerHTML = `<h2>استرجاع فاتورة شراء</h2><div class="flex-wrap"><input id="returnSearchId" placeholder="بحث برقم الفاتورة" style="flex:1"><button class="primary" id="returnSearchBtn">🔍 بحث</button></div><div id="returnPurchaseResult"></div>`;
-    const displayPurchaseInvoices = (list) => {
-        if (list.length === 0) { document.getElementById('returnPurchaseResult').innerHTML = '<p>لا توجد فواتير</p>'; return; }
-        document.getElementById('returnPurchaseResult').innerHTML = `<table><thead><tr><th>رقم الفاتورة</th><th>المورد</th><th>التاريخ</th><th>الإجمالي</th><th>إجراء</th></tr></thead><tbody>${list.map(p => `<tr><td>${p.id}</td><td>${p.supplier}</td><td>${p.date}</td><td>${p.total} ج.م</td><td><button class="danger returnPurchaseBtn" data-id="${p.id}">↩️ استرجاع</button></td></tr>`).join('')}</tbody></table>`;
+    container.innerHTML = `<h2>استرجاع فاتورة شراء</h2><input id="returnSearchId" placeholder="رقم الفاتورة"><button class="primary" id="returnSearchBtn">🔍 بحث</button><div id="returnPurchaseResult"></div>`;
+    const display = (list) => {
+        document.getElementById('returnPurchaseResult').innerHTML = list.length ? `<table><thead><tr><th>رقم</th><th>المورد</th><th>التاريخ</th><th>الإجمالي</th><th>إجراء</th></tr></thead><tbody>${list.map(p => `<tr><td>${p.id}</td><td>${p.supplier}</td><td>${p.date}</td><td>${p.total}</td><td><button class="danger returnPurchaseBtn" data-id="${p.id}">↩️ استرجاع</button></td></tr>`).join('')}</tbody></table>` : '<p>لا توجد فواتير</p>';
         document.querySelectorAll('.returnPurchaseBtn').forEach(btn => btn.addEventListener('click', () => {
-            if (confirm('تأكيد استرجاع فاتورة الشراء؟ سيتم خصم الكميات من المخزون')) {
-                let id = +btn.dataset.id, inv = purchaseInvoices.find(p => p.id === id);
+            if (confirm('استرجاع الفاتورة؟')) {
+                let inv = purchaseInvoices.find(p => p.id === +btn.dataset.id);
                 if (inv?.items) {
                     for (let item of inv.items) {
                         let prod = products.find(p => p.id === item.id);
-                        if (prod) { prod.stock -= item.qty; if (prod.stock < 0) prod.stock = 0; stockMovements.push({ id: genId(stockMovements), type: 'سحب', productId: prod.id, productName: prod.name, quantity: item.qty, destination: `استرجاع فاتورة شراء - ${inv.supplier}`, date: new Date().toISOString().split('T')[0], recordedBy: currentUser?.fullName || '-', branch: 'الرئيسي' }); }
+                        if (prod?.batches) {
+                            let batch = prod.batches.find(b => b.expiryDate === item.expiryDate);
+                            if (batch) batch.quantity = Math.max(0, batch.quantity - item.qty);
+                            prod.batches = prod.batches.filter(b => b.quantity > 0);
+                        }
                     }
                 }
-                purchaseInvoices = purchaseInvoices.filter(p => p.id !== id);
-                saveAll(); checkProductAlerts();
-                showMsg('تم استرجاع فاتورة الشراء');
-                renderReturnPurchase(container);
+                purchaseInvoices = purchaseInvoices.filter(p => p.id !== +btn.dataset.id);
+                updateTotalStock();
+                saveAll();
+                display(purchaseInvoices);
             }
         }));
     };
-    document.getElementById('returnSearchBtn')?.addEventListener('click', () => { let searchId = document.getElementById('returnSearchId').value; displayPurchaseInvoices(searchId ? purchaseInvoices.filter(p => p.id == searchId) : purchaseInvoices); });
-    displayPurchaseInvoices(purchaseInvoices);
+    document.getElementById('returnSearchBtn')?.addEventListener('click', () => { let id = document.getElementById('returnSearchId').value; display(id ? purchaseInvoices.filter(p => p.id == id) : purchaseInvoices); });
+    display(purchaseInvoices);
 }
 
 function renderPurchaseList(container) {
-    container.innerHTML = `<h2>سجل فواتير الشراء</h2><button class="primary" id="exportPurchaseBtn">تصدير Excel</button>
-    ${purchaseInvoices.length === 0 ? '<p>لا توجد فواتير</p>' : `<table><thead><tr><th>رقم</th><th>المورد</th><th>التاريخ</th><th>الإجمالي</th><th>المدفوع</th><th>💰 المتبقي للمورد</th><th>تفاصيل</th><th>حذف</th></tr></thead><tbody>${purchaseInvoices.map(p => `<tr><td>${p.id}</td><td>${p.supplier}</td><td>${p.date}</td><td>${p.total}</td><td>${p.paid || 0}</td><td>${p.remaining || 0}</td><td><button class="info viewPurchaseBtn" data-id="${p.id}">👁️</button></td><td><button class="danger deletePurchaseBtn" data-id="${p.id}">🗑️</button></td></tr>`).join('')}</tbody></table>`}`;
-    
-    document.getElementById('exportPurchaseBtn')?.addEventListener('click', () => { let data = purchaseInvoices.map(p => [p.id, p.supplier, p.date, p.total, p.paid || 0, p.remaining || 0]); exportToExcel(data, 'سجل_المشتريات', ['رقم', 'المورد', 'التاريخ', 'الإجمالي', 'المدفوع', 'المتبقي للمورد']); });
+    container.innerHTML = `<h2>سجل فواتير الشراء</h2><button class="primary" id="exportPurchaseBtn">📊 تصدير Excel</button>${purchaseInvoices.length ? `<table><thead><tr><th>رقم</th><th>المورد</th><th>التاريخ</th><th>الإجمالي</th><th>حذف</th></tr></thead><tbody>${purchaseInvoices.map(p => `<tr><td>${p.id}</td><td>${p.supplier}</td><td>${p.date}</td><td>${p.total}</td><td><button class="danger deletePurchaseBtn" data-id="${p.id}">🗑️</button></td></tr>`).join('')}</tbody></table>` : '<p>لا توجد فواتير</p>'}`;
+    document.getElementById('exportPurchaseBtn')?.addEventListener('click', () => exportToExcel(purchaseInvoices.map(p => [p.id, p.supplier, p.date, p.total]), 'المشتريات', ['رقم','المورد','التاريخ','الإجمالي']));
     container.addEventListener('click', (e) => {
-        let viewBtn = e.target.closest('.viewPurchaseBtn');
-        if (viewBtn) {
-            let id = +viewBtn.dataset.id, inv = purchaseInvoices.find(p => p.id === id);
-            if (!inv) return;
-            let itemsHtml = inv.items.map(item => `<tr><td>${item.name}</td><td>${item.qty}</td><td>${item.price}</td><td>${item.qty * item.price}</td></tr>`).join('');
-            let discountRow = inv.discountValue ? `<tr><td colspan="3">خصم ${inv.discountPercent || 0}%</td><td>- ${inv.discountValue} ج.م</td></tr>` : '';
-            let taxRow = inv.tax ? `<tr><td colspan="3">ضريبة</td><td>${inv.tax} ج.م</td></tr>` : '';
-            let win = window.open('', '_blank');
-            win.document.write(`<html dir="rtl"><head><title>تفاصيل فاتورة الشراء</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #ccc;padding:8px;text-align:center}th{background:#eee}</style></head><body><h2>تفاصيل فاتورة الشراء</h2><p>رقم الفاتورة: ${inv.id}</p><p>المورد: ${inv.supplier}</p><p>التاريخ: ${inv.date}</p><table><thead><tr><th>الصنف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead><tbody>${itemsHtml}${discountRow}${taxRow}</tbody></table><h3>الإجمالي: ${inv.total} ج.م</h3><h3>المدفوع: ${inv.paid || 0} ج.م</h3><h3>💰 المتبقي للمورد: ${inv.remaining || 0} ج.م</h3></body></html>`);
-        }
-        let delBtn = e.target.closest('.deletePurchaseBtn');
-        if (delBtn && confirm('حذف الفاتورة؟')) {
-            let id = +delBtn.dataset.id, inv = purchaseInvoices.find(p => p.id === id);
-            if (inv?.items) { for (let item of inv.items) { let prod = products.find(p => p.id === item.id); if (prod) { prod.stock -= item.qty; if (prod.stock < 0) prod.stock = 0; } } }
-            purchaseInvoices = purchaseInvoices.filter(p => p.id !== id);
+        let del = e.target.closest('.deletePurchaseBtn');
+        if (del && confirm('حذف؟')) {
+            let inv = purchaseInvoices.find(p => p.id === +del.dataset.id);
+            if (inv?.items) for (let item of inv.items) { let prod = products.find(p => p.id === item.id); if (prod?.batches) { let batch = prod.batches.find(b => b.expiryDate === item.expiryDate); if (batch) batch.quantity = Math.max(0, batch.quantity - item.qty); prod.batches = prod.batches.filter(b => b.quantity > 0); } }
+            purchaseInvoices = purchaseInvoices.filter(p => p.id !== +del.dataset.id);
+            updateTotalStock();
             saveAll();
             renderPurchaseList(container);
         }
@@ -1473,751 +1260,52 @@ function renderPurchaseList(container) {
 }
 
 function renderSuppliers(container) {
-    container.innerHTML = `<h2>إدارة الموردين</h2><div class="grid-2"><div><input id="supName" placeholder="اسم المورد"><input id="supAddr" placeholder="العنوان"><input id="supPhone" placeholder="الهاتف"><button class="primary" id="addSupBtn">➕ إضافة</button></div><div id="suppliersUl"></div></div>`;
-    const list = () => { document.getElementById('suppliersUl').innerHTML = suppliers.map(s => `<div style="padding:10px; background:#fefaf5; margin:5px 0; display:flex; justify-content:space-between;">${s.name} - ${s.phone} <button class="danger deleteSupBtn" data-id="${s.id}">حذف</button></div>`).join(''); document.querySelectorAll('.deleteSupBtn').forEach(btn => btn.addEventListener('click', () => { suppliers = suppliers.filter(s => s.id != btn.dataset.id); saveAll(); list(); })); };
-    document.getElementById('addSupBtn')?.addEventListener('click', () => { let n = document.getElementById('supName').value, a = document.getElementById('supAddr').value, p = document.getElementById('supPhone').value; if (n) { suppliers.push({ id: genId(suppliers), name: n, address: a, phone: p }); saveAll(); list(); document.getElementById('supName').value = ''; document.getElementById('supAddr').value = ''; document.getElementById('supPhone').value = ''; } else showMsg('أدخل الاسم', true); });
+    container.innerHTML = `<h2>الموردين</h2><input id="supName" placeholder="الاسم"><input id="supPhone" placeholder="الهاتف"><input id="supAddr" placeholder="العنوان"><button class="primary" id="addSupBtn">➕ إضافة</button><div id="suppliersUl"></div>`;
+    const list = () => { document.getElementById('suppliersUl').innerHTML = suppliers.map(s => `<div style="padding:10px; background:#fefaf5; margin:5px 0; display:flex; justify-content:space-between;">${s.name} - ${s.phone} <button class="danger deleteSupBtn" data-id="${s.id}">🗑️</button></div>`).join(''); document.querySelectorAll('.deleteSupBtn').forEach(btn => btn.addEventListener('click', () => { suppliers = suppliers.filter(s => s.id != btn.dataset.id); saveAll(); list(); })); };
+    document.getElementById('addSupBtn')?.addEventListener('click', () => { let n = document.getElementById('supName').value, p = document.getElementById('supPhone').value, a = document.getElementById('supAddr').value; if (n) { suppliers.push({ id: genId(suppliers), name: n, phone: p, address: a }); saveAll(); list(); document.getElementById('supName').value = ''; document.getElementById('supPhone').value = ''; document.getElementById('supAddr').value = ''; } });
     list();
 }
 
 function renderSuppliersList(container) {
-    container.innerHTML = `<h2>سجل الموردين</h2>${suppliers.length === 0 ? '<p>لا يوجد موردين</p>' : `<table><thead><tr><th>الاسم</th><th>العنوان</th><th>الهاتف</th><th>حفظ</th></tr></thead><tbody>${suppliers.map(s => `<tr><td contenteditable="true" class="editName" data-id="${s.id}">${s.name}</td><td contenteditable="true" class="editAddr" data-id="${s.id}">${s.address}</td><td contenteditable="true" class="editPhone" data-id="${s.id}">${s.phone}</td><td><button class="saveSup success" data-id="${s.id}">💾</button></td></tr>`).join('')}</tbody></table>`}`;
-    document.querySelectorAll('.saveSup').forEach(btn => btn.addEventListener('click', () => { let id = +btn.dataset.id, sup = suppliers.find(s => s.id === id); if (sup) { sup.name = document.querySelector(`.editName[data-id="${id}"]`).innerText; sup.address = document.querySelector(`.editAddr[data-id="${id}"]`).innerText; sup.phone = document.querySelector(`.editPhone[data-id="${id}"]`).innerText; saveAll(); showMsg('تم الحفظ'); } }));
-}function renderFinances(container) {
-    // حساب الإحصائيات
-    let stockValueWholesale = products.reduce((sum, p) => sum + ((p.priceWholesale || 0) * (p.stock || 0)), 0);
-    let stockValueRetail = products.reduce((sum, p) => sum + ((p.priceRetail || 0) * (p.stock || 0)), 0);
-    let totalSales = invoices.filter(i => !i.isReturned).reduce((sum, i) => sum + (i.finalTotal || i.total || 0), 0);
-    let totalPurchases = purchaseInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
-    let cashFlow = totalSales - totalPurchases;
-    
-    let retailSales = invoices.filter(i => !i.isReturned).reduce((sum, i) => 
-        sum + i.items.reduce((s, item) => 
-            item.saleType === 'retail' ? s + (item.price * item.qty) : s, 0), 0);
-    
-    let wholesaleSales = invoices.filter(i => !i.isReturned).reduce((sum, i) => 
-        sum + i.items.reduce((s, item) => 
-            item.saleType === 'wholesale' ? s + (item.price * item.qty) : s, 0), 0);
-    
-    let costOfGoodsSold = invoices.filter(i => !i.isReturned).reduce((sum, i) => 
-        sum + i.items.reduce((s, item) => { 
-            let prod = products.find(p => p.id === item.id); 
-            return prod ? s + ((prod.priceWholesale || 0) * item.qty) : s; 
-        }, 0), 0);
-    
-    let netProfit = (retailSales + wholesaleSales) - costOfGoodsSold;
-    
-    // بناء واجهة الماليات
-    container.innerHTML = `<h2>💰 الماليات والتقارير</h2>
-    
-    <!-- بطاقات ملخصة -->
-    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px; margin-bottom:25px;">
-        <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding:20px; border-radius:15px; text-align:center; color:white;">
-            <i class="fas fa-chart-line" style="font-size:2rem; margin-bottom:10px;"></i>
-            <h4 style="margin:0; opacity:0.9;">إجمالي المبيعات</h4>
-            <p style="font-size:2rem; font-weight:bold; margin:10px 0 0;">${totalSales.toLocaleString()} ج.م</p>
-        </div>
-        <div style="background:linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding:20px; border-radius:15px; text-align:center; color:white;">
-            <i class="fas fa-shopping-cart" style="font-size:2rem; margin-bottom:10px;"></i>
-            <h4 style="margin:0; opacity:0.9;">إجمالي المشتريات</h4>
-            <p style="font-size:2rem; font-weight:bold; margin:10px 0 0;">${totalPurchases.toLocaleString()} ج.م</p>
-        </div>
-        <div style="background:linear-gradient(135deg, ${cashFlow >= 0 ? '#4facfe 0%, #00f2fe' : '#fa709a 0%, #fee140'} 100%); padding:20px; border-radius:15px; text-align:center; color:white;">
-            <i class="fas fa-money-bill-wave" style="font-size:2rem; margin-bottom:10px;"></i>
-            <h4 style="margin:0; opacity:0.9;">صافي التدفق النقدي</h4>
-            <p style="font-size:2rem; font-weight:bold; margin:10px 0 0;">${cashFlow.toLocaleString()} ج.م</p>
-        </div>
-    </div>
-    
-    <div class="grid-2">
-        <div>
-            <!-- المخزون -->
-            <div style="background:#fefaf5; padding:20px; border-radius:15px; margin-bottom:20px; border:1px solid #ede0cf;">
-                <h3 style="margin-top:0; display:flex; align-items:center; gap:10px;">
-                    <i class="fas fa-boxes" style="color:#c7a86b;"></i> إجمالي المخزون
-                </h3>
-                <div style="display:flex; justify-content:space-between; padding:15px 0; border-bottom:1px dashed #ddd;">
-                    <span>بسعر الجملة:</span>
-                    <strong>${stockValueWholesale.toLocaleString()} ج.م</strong>
-                </div>
-                <div style="display:flex; justify-content:space-between; padding:15px 0;">
-                    <span>بسعر القطاعي:</span>
-                    <strong>${stockValueRetail.toLocaleString()} ج.م</strong>
-                </div>
-            </div>
-            
-            <!-- صافي الربح -->
-            <div style="background:linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); padding:20px; border-radius:15px; border:1px solid #a5d6a7;">
-                <h3 style="margin-top:0; display:flex; align-items:center; gap:10px; color:#2e7d32;">
-                    <i class="fas fa-chart-pie"></i> تحليل الأرباح
-                </h3>
-                <div style="display:flex; justify-content:space-between; padding:10px 0;">
-                    <span>مبيعات الجملة:</span>
-                    <strong>${wholesaleSales.toLocaleString()} ج.م</strong>
-                </div>
-                <div style="display:flex; justify-content:space-between; padding:10px 0;">
-                    <span>مبيعات القطاعي:</span>
-                    <strong>${retailSales.toLocaleString()} ج.م</strong>
-                </div>
-                <div style="display:flex; justify-content:space-between; padding:10px 0; border-top:1px dashed #a5d6a7;">
-                    <span>إجمالي المبيعات:</span>
-                    <strong>${(retailSales + wholesaleSales).toLocaleString()} ج.م</strong>
-                </div>
-                <div style="display:flex; justify-content:space-between; padding:10px 0;">
-                    <span>تكلفة المنتجات المباعة:</span>
-                    <strong style="color:#c62828;">- ${costOfGoodsSold.toLocaleString()} ج.م</strong>
-                </div>
-                <div style="display:flex; justify-content:space-between; padding:15px; margin-top:10px; background:#2e7d32; border-radius:10px; color:white;">
-                    <span style="font-weight:bold;">صافي الربح:</span>
-                    <strong style="font-size:1.3rem;">${netProfit.toLocaleString()} ج.م</strong>
-                </div>
-            </div>
-        </div>
-        
-        <div>
-            <h3 style="display:flex; align-items:center; gap:10px;">
-                <i class="fas fa-file-alt" style="color:#c7a86b;"></i> التقارير المالية
-            </h3>
-            
-            <!-- أزرار التقارير السريعة -->
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
-                <button id="dailyReportBtn" class="primary" style="padding:15px;">
-                    <i class="fas fa-calendar-day"></i><br>تقرير يومي
-                </button>
-                <button id="monthlyReportBtn" class="primary" style="padding:15px;">
-                    <i class="fas fa-calendar-alt"></i><br>تقرير شهري
-                </button>
-                <button id="yearlyReportBtn" class="primary" style="padding:15px;">
-                    <i class="fas fa-calendar"></i><br>تقرير سنوي
-                </button>
-                <button id="profitReportBtn" class="primary" style="padding:15px; background:#2e7d32;">
-                    <i class="fas fa-chart-bar"></i><br>تقرير الأرباح
-                </button>
-            </div>
-            
-            <!-- تقرير مخصص -->
-            <div style="background:#fefaf5; padding:20px; border-radius:15px; border:1px solid #ede0cf;">
-                <h4 style="margin-top:0;">📅 تقرير مخصص</h4>
-                <label>من تاريخ</label>
-                <input type="date" id="startDate" value="${new Date(new Date().setDate(1)).toISOString().split('T')[0]}">
-                <label>إلى تاريخ</label>
-                <input type="date" id="endDate" value="${new Date().toISOString().split('T')[0]}">
-                <button id="customReportBtn" class="primary" style="width:100%; margin-top:15px; padding:12px;">
-                    <i class="fas fa-search"></i> عرض التقرير
-                </button>
-                <button id="showAllInvoicesBtn" class="info" style="width:100%; margin-top:10px; padding:12px;">
-                    <i class="fas fa-list"></i> عرض جميع الفواتير للتحقق
-                </button>
-            </div>
-            
-            <!-- زر تصدير Excel -->
-            <button id="exportFinanceExcelBtn" class="success" style="width:100%; margin-top:20px; padding:15px;">
-                <i class="fas fa-file-excel"></i> تصدير تقرير Excel شامل
-            </button>
-        </div>
-    </div>
-    
-    <!-- منطقة عرض نتيجة التقرير -->
-    <div id="reportResult" style="margin-top:30px;"></div>`;
-    
-    // ========== دالة طباعة التقرير ==========
-    function printFinancialReport(title, reportData) {
-        let win = window.open('', '_blank');
-        
-        let rowsHtml = '';
-        for (let key in reportData) {
-            rowsHtml += `
-                <tr>
-                    <td style="text-align:right; padding:12px; border-bottom:1px solid #ddd;">${key}</td>
-                    <td style="text-align:left; padding:12px; border-bottom:1px solid #ddd; font-weight:bold;">${reportData[key]}</td>
-                </tr>
-            `;
-        }
-        
-        win.document.write(`
-            <html dir="rtl">
-            <head>
-                <meta charset="UTF-8">
-                <title>${title} - عجائب الرحمن</title>
-                <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-                <style>
-                    * { margin: 0; padding: 0; box-sizing: border-box; }
-                    body { font-family: 'Cairo', sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-                    .report-container { max-width: 500px; width: 100%; background: white; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); padding: 25px; }
-                    .report-header { text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #c7a86b; }
-                    .report-header img { width: 80px; height: 80px; object-fit: contain; margin-bottom: 10px; }
-                    .report-header h2 { color: #8b6946; font-size: 1.5rem; margin: 5px 0; }
-                    .report-header h3 { color: #aa7b4b; font-size: 1.2rem; margin: 5px 0; }
-                    .report-header .date { color: #666; font-size: 0.9rem; margin-top: 10px; }
-                    .report-body table { width: 100%; border-collapse: collapse; }
-                    .report-footer { margin-top: 25px; padding-top: 15px; border-top: 1px dashed #ccc; text-align: center; font-size: 0.85rem; color: #666; }
-                </style>
-            </head>
-            <body>
-                <div class="report-container">
-                    <div class="report-header">
-                        <img src="logo2.png" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'80\\' height=\\'80\\'%3E%3Crect width=\\'80\\' height=\\'80\\' fill=\\'%23f0e5d8\\'/%3E%3Ctext x=\\'40\\' y=\\'55\\' font-size=\\'40\\' text-anchor=\\'middle\\' fill=\\'%23aa7b4b\\'%3E🐾%3C/text%3E%3C/svg%3E'">
-                        <h2>🐾 عجائب الرحمن</h2>
-                        <h3>${title}</h3>
-                        <div class="date">${new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
-                    </div>
-                    <div class="report-body">
-                        <table>${rowsHtml}</table>
-                    </div>
-                    <div class="report-footer">
-                        <p>تم إنشاء هذا التقرير بواسطة: ${currentUser?.fullName || 'النظام'}</p>
-                        <p>© ${new Date().getFullYear()} عجائب الرحمن - جميع الحقوق محفوظة</p>
-                    </div>
-                </div>
-                <script>window.onload=function(){window.print();setTimeout(()=>window.close(),500)}<\/script>
-            </body>
-            </html>
-        `);
-        win.document.close();
-    }
-    
-    // ========== دالة استخراج التاريخ من الفاتورة ==========
-    function parseInvoiceDate(invoice) {
-        if (!invoice.date) return null;
-        
-        // محاولة تحويل التاريخ من الصيغة العربية
-        let dateStr = invoice.date;
-        
-        // إذا كان التاريخ بالصيغة العربية (مثال: "٢٠٢٤/١٢/٢٥" أو "2024/12/25")
-        // نحول الأرقام العربية إلى إنجليزية
-        const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-        const englishNumbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-        
-        let normalizedDate = dateStr;
-        arabicNumbers.forEach((arabic, index) => {
-            normalizedDate = normalizedDate.replace(new RegExp(arabic, 'g'), englishNumbers[index]);
-        });
-        
-        // استخراج الأرقام من النص
-        let numbers = normalizedDate.match(/\d+/g);
-        if (!numbers || numbers.length < 3) {
-            // محاولة تحويل النص الكامل إلى تاريخ
-            let parsed = new Date(normalizedDate);
-            if (!isNaN(parsed.getTime())) {
-                return parsed;
-            }
-            return null;
-        }
-        
-        // تجربة صيغ مختلفة (سنة/شهر/يوم) أو (يوم/شهر/سنة)
-        let year, month, day;
-        
-        if (parseInt(numbers[0]) > 2000) {
-            // صيغة سنة/شهر/يوم
-            year = parseInt(numbers[0]);
-            month = parseInt(numbers[1]) - 1;
-            day = parseInt(numbers[2]);
-        } else {
-            // صيغة يوم/شهر/سنة
-            day = parseInt(numbers[0]);
-            month = parseInt(numbers[1]) - 1;
-            year = parseInt(numbers[2]);
-        }
-        
-        let date = new Date(year, month, day);
-        
-        // تصحيح السنة إذا كانت بسنتين فقط
-        if (year < 100) {
-            date.setFullYear(year + 2000);
-        }
-        
-        return date;
-    }
-    
-    // ========== دالة عرض التقرير (معدلة) ==========
-    function showReport(startDate, endDate, title) {
-        console.log('🔍 بدء إنشاء التقرير:', title);
-        console.log('📅 الفترة من:', startDate, 'إلى:', endDate);
-        console.log('📋 عدد الفواتير الكلي:', invoices.length);
-        
-        // تصفية الفواتير حسب التاريخ
-        let filteredInvoices = invoices.filter(i => { 
-            if (i.isReturned) return false;
-            
-            let invDate = parseInvoiceDate(i);
-            if (!invDate) {
-                console.warn('❌ لم يتمكن من تحليل تاريخ الفاتورة:', i.id, i.date);
-                return false;
-            }
-            
-            // ضبط الوقت إلى منتصف الليل للمقارنة
-            invDate.setHours(0, 0, 0, 0);
-            
-            let inRange = invDate >= startDate && invDate <= endDate;
-            
-            if (inRange) {
-                console.log('✅ فاتورة ضمن الفترة:', i.id, i.date, '→', invDate.toLocaleDateString());
-            }
-            
-            return inRange;
-        });
-        
-        console.log('📊 عدد الفواتير المطابقة:', filteredInvoices.length);
-        
-        // إذا لم توجد فواتير، عرض رسالة توضيحية
-        if (filteredInvoices.length === 0) {
-            document.getElementById('reportResult').innerHTML = `
-                <div style="background:#fff3e0; padding:25px; border-radius:15px; border:1px solid #ffb74d; text-align:center;">
-                    <i class="fas fa-info-circle" style="font-size:3rem; color:#f57c00; margin-bottom:15px;"></i>
-                    <h3 style="color:#e65100; margin-bottom:10px;">لا توجد فواتير في هذه الفترة</h3>
-                    <p>الفترة: ${startDate.toLocaleDateString('ar-EG')} - ${endDate.toLocaleDateString('ar-EG')}</p>
-                    <p style="margin-top:15px;">إجمالي الفواتير في النظام: ${invoices.length}</p>
-                    <button id="debugInvoicesBtn" class="primary" style="margin-top:20px; padding:10px 20px;">
-                        <i class="fas fa-bug"></i> عرض جميع الفواتير للتحقق
-                    </button>
-                </div>
-            `;
-            
-            document.getElementById('debugInvoicesBtn')?.addEventListener('click', () => {
-                showAllInvoicesDebug();
-            });
-            
-            return;
-        }
-        
-        let totalSales = filteredInvoices.reduce((sum, i) => sum + (i.finalTotal || i.total || 0), 0);
-        let totalPaid = filteredInvoices.reduce((sum, i) => sum + (i.paid || 0), 0);
-        let totalRemaining = filteredInvoices.reduce((sum, i) => sum + (i.remaining || 0), 0);
-        let totalDiscount = filteredInvoices.reduce((sum, i) => sum + (i.discountValue || 0), 0);
-        let totalTax = filteredInvoices.reduce((sum, i) => sum + (i.tax || 0), 0);
-        let retailCount = filteredInvoices.reduce((sum, i) => sum + i.items.filter(item => item.saleType === 'retail').length, 0);
-        let wholesaleCount = filteredInvoices.reduce((sum, i) => sum + i.items.filter(item => item.saleType === 'wholesale').length, 0);
-        
-        let reportData = {
-            'عدد الفواتير': filteredInvoices.length,
-            'عدد الأصناف (قطاعي)': retailCount,
-            'عدد الأصناف (جملة)': wholesaleCount,
-            'إجمالي الخصومات': `${totalDiscount.toLocaleString()} ج.م`,
-            'إجمالي الضرائب': `${totalTax.toLocaleString()} ج.م`,
-            'إجمالي المبيعات': `${totalSales.toLocaleString()} ج.م`,
-            'إجمالي المدفوع': `${totalPaid.toLocaleString()} ج.م`,
-            'المتبقي لدى العملاء': `${totalRemaining.toLocaleString()} ج.م`
-        };
-        
-        document.getElementById('reportResult').innerHTML = `
-            <div style="background:white; padding:25px; border-radius:15px; border:1px solid #ede0cf;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                    <h3 style="margin:0;">📊 ${title}</h3>
-                    <button class="primary printReportBtn" style="padding:10px 20px;">
-                        <i class="fas fa-print"></i> طباعة التقرير
-                    </button>
-                </div>
-                <p style="margin-bottom:15px; color:#666; background:#f0e5d8; padding:10px; border-radius:8px;">
-                    <i class="fas fa-calendar"></i> الفترة: ${startDate.toLocaleDateString('ar-EG')} - ${endDate.toLocaleDateString('ar-EG')}
-                </p>
-                <table style="width:100%;">
-                    ${Object.entries(reportData).map(([key, value]) => `
-                        <tr>
-                            <td style="padding:12px; border-bottom:1px solid #eee; font-weight:500;">${key}</td>
-                            <td style="padding:12px; border-bottom:1px solid #eee; text-align:left; font-weight:bold;">${value}</td>
-                        </tr>
-                    `).join('')}
-                </table>
-            </div>
-        `;
-        
-        document.querySelector('.printReportBtn')?.addEventListener('click', () => {
-            printFinancialReport(title, reportData);
-        });
-    }
-    
-    // ========== دالة عرض جميع الفواتير للتشخيص ==========
-    function showAllInvoicesDebug() {
-        let html = `
-            <div style="background:white; padding:25px; border-radius:15px; border:1px solid #ede0cf;">
-                <h3>🔍 جميع الفواتير في النظام</h3>
-                <p>إجمالي الفواتير: ${invoices.length}</p>
-                <table style="width:100%; margin-top:15px; border-collapse:collapse;">
-                    <thead>
-                        <tr style="background:#f0e5d8;">
-                            <th>رقم</th>
-                            <th>التاريخ الأصلي</th>
-                            <th>التاريخ المحول</th>
-                            <th>الإجمالي</th>
-                            <th>الحالة</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-        
-        invoices.forEach(i => {
-            let parsedDate = parseInvoiceDate(i);
-            html += `
-                <tr>
-                    <td>${i.id}</td>
-                    <td>${i.date || '-'}</td>
-                    <td>${parsedDate ? parsedDate.toLocaleDateString('ar-EG') : '❌ فشل التحويل'}</td>
-                    <td>${(i.finalTotal || i.total || 0).toLocaleString()} ج.م</td>
-                    <td>${i.isReturned ? '❌ مرتجعة' : '✅ نشطة'}</td>
-                </tr>
-            `;
-        });
-        
-        html += `
-                    </tbody>
-                </table>
-                <button id="closeDebugBtn" class="primary" style="margin-top:20px;">إغلاق</button>
-            </div>
-        `;
-        
-        document.getElementById('reportResult').innerHTML = html;
-        document.getElementById('closeDebugBtn')?.addEventListener('click', () => {
-            document.getElementById('reportResult').innerHTML = '';
-        });
-    }
-    
-    // ========== تقرير الأرباح التفصيلي ==========
-    function showProfitReport() {
-        document.getElementById('reportResult').innerHTML = `
-            <div style="background:white; padding:25px; border-radius:15px; border:1px solid #ede0cf;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                    <h3 style="margin:0;">📊 تقرير الأرباح التفصيلي</h3>
-                    <button class="primary printProfitReportBtn" style="padding:10px 20px;">
-                        <i class="fas fa-print"></i> طباعة التقرير
-                    </button>
-                </div>
-                <table style="width:100%; border-collapse:collapse;">
-                    <thead>
-                        <tr style="background:#f0e5d8;">
-                            <th style="padding:12px;">المنتج</th>
-                            <th style="padding:12px;">الكمية</th>
-                            <th style="padding:12px;">الإيرادات</th>
-                            <th style="padding:12px;">التكلفة</th>
-                            <th style="padding:12px;">الربح</th>
-                        </tr>
-                    </thead>
-                    <tbody id="profitTableBody"></tbody>
-                    <tfoot id="profitTableFoot"></tfoot>
-                </table>
-            </div>
-        `;
-        
-        let tbody = document.getElementById('profitTableBody');
-        let totalQty = 0, totalRevenue = 0, totalCost = 0, totalProfit = 0;
-        
-        let html = '';
-        products.forEach(p => {
-            let soldItems = [];
-            invoices.filter(i => !i.isReturned).forEach(inv => {
-                inv.items.filter(item => item.id === p.id).forEach(item => soldItems.push(item));
-            });
-            let soldQty = soldItems.reduce((sum, item) => sum + item.qty, 0);
-            let revenue = soldItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
-            let cost = soldQty * (p.priceWholesale || 0);
-            let profit = revenue - cost;
-            let profitMargin = revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : 0;
-            
-            if (soldQty > 0) {
-                totalQty += soldQty;
-                totalRevenue += revenue;
-                totalCost += cost;
-                totalProfit += profit;
-                
-                html += `
-                    <tr>
-                        <td style="padding:10px; border-bottom:1px solid #eee;">
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                ${p.image && p.image.startsWith('data:image') ? 
-                                    `<img src="${p.image}" style="width:30px;height:30px;object-fit:cover;border-radius:6px;">` : 
-                                    `<span style="font-size:20px;">${p.image || '🐾'}</span>`}
-                                ${p.name}
-                            </div>
-                        </td>
-                        <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">${soldQty}</td>
-                        <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">${revenue.toLocaleString()} ج.م</td>
-                        <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">${cost.toLocaleString()} ج.م</td>
-                        <td style="padding:10px; border-bottom:1px solid #eee; text-align:center; color:${profit >= 0 ? '#2c5f2d' : '#b85c1a'};">
-                            ${profit.toLocaleString()} ج.م<br><small>(${profitMargin}%)</small>
-                        </td>
-                    </tr>
-                `;
-            }
-        });
-        
-        tbody.innerHTML = html || '<tr><td colspan="5" style="text-align:center; padding:20px;">لا توجد مبيعات بعد</td></tr>';
-        
-        document.getElementById('profitTableFoot').innerHTML = totalQty > 0 ? `
-            <tr style="background:#f0e5d8; font-weight:bold;">
-                <td style="padding:12px;">الإجمالي</td>
-                <td style="padding:12px; text-align:center;">${totalQty}</td>
-                <td style="padding:12px; text-align:center;">${totalRevenue.toLocaleString()} ج.م</td>
-                <td style="padding:12px; text-align:center;">${totalCost.toLocaleString()} ج.م</td>
-                <td style="padding:12px; text-align:center; color:${totalProfit >= 0 ? '#2c5f2d' : '#b85c1a'};">
-                    ${totalProfit.toLocaleString()} ج.م
-                </td>
-            </tr>
-        ` : '';
-        
-        document.querySelector('.printProfitReportBtn')?.addEventListener('click', () => {
-            let printData = {
-                'إجمالي الكميات المباعة': totalQty,
-                'إجمالي الإيرادات': `${totalRevenue.toLocaleString()} ج.م`,
-                'إجمالي التكلفة': `${totalCost.toLocaleString()} ج.م`,
-                'صافي الربح': `${totalProfit.toLocaleString()} ج.م`
-            };
-            printFinancialReport('تقرير الأرباح التفصيلي', printData);
-        });
-    }
-    
-    // ========== تصدير Excel ==========
-    document.getElementById('exportFinanceExcelBtn')?.addEventListener('click', () => {
-        let data = [
-            ['التقرير المالي الشامل - عجائب الرحمن'],
-            ['تاريخ التقرير:', new Date().toLocaleDateString('ar-EG')],
-            [],
-            ['ملخص الماليات'],
-            ['إجمالي المبيعات', totalSales.toLocaleString() + ' ج.م'],
-            ['إجمالي المشتريات', totalPurchases.toLocaleString() + ' ج.م'],
-            ['صافي التدفق النقدي', cashFlow.toLocaleString() + ' ج.م'],
-            ['قيمة المخزون (جملة)', stockValueWholesale.toLocaleString() + ' ج.م'],
-            ['قيمة المخزون (قطاعي)', stockValueRetail.toLocaleString() + ' ج.م'],
-            ['صافي الربح', netProfit.toLocaleString() + ' ج.م'],
-            [],
-            ['تفاصيل المنتجات'],
-            ['المنتج', 'المخزون', 'سعر الجملة', 'سعر القطاعي', 'قيمة المخزون (جملة)', 'قيمة المخزون (قطاعي)']
-        ];
-        
-        products.forEach(p => {
-            data.push([
-                p.name, 
-                p.stock || 0, 
-                (p.priceWholesale || 0) + ' ج.م', 
-                (p.priceRetail || 0) + ' ج.م',
-                ((p.stock || 0) * (p.priceWholesale || 0)) + ' ج.م',
-                ((p.stock || 0) * (p.priceRetail || 0)) + ' ج.م'
-            ]);
-        });
-        
-        exportToExcel(data, 'تقرير_مالي_شامل', ['']);
-        showMsg('✅ تم تصدير التقرير المالي الشامل');
-    });
-    
-    // ========== ربط الأحداث ==========
-    document.getElementById('dailyReportBtn')?.addEventListener('click', () => { 
-        let today = new Date(); 
-        today.setHours(0,0,0,0); 
-        let tomorrow = new Date(today); 
-        tomorrow.setDate(tomorrow.getDate()+1); 
-        tomorrow.setHours(23,59,59);
-        showReport(today, tomorrow, 'التقرير اليومي'); 
-    });
-    
-    document.getElementById('monthlyReportBtn')?.addEventListener('click', () => { 
-        let now = new Date(); 
-        let start = new Date(now.getFullYear(), now.getMonth(), 1); 
-        start.setHours(0,0,0,0);
-        let end = new Date(now.getFullYear(), now.getMonth()+1, 0); 
-        end.setHours(23,59,59);
-        showReport(start, end, 'التقرير الشهري'); 
-    });
-    
-    document.getElementById('yearlyReportBtn')?.addEventListener('click', () => { 
-        let now = new Date(); 
-        let start = new Date(now.getFullYear(), 0, 1); 
-        start.setHours(0,0,0,0);
-        let end = new Date(now.getFullYear(), 11, 31); 
-        end.setHours(23,59,59);
-        showReport(start, end, 'التقرير السنوي'); 
-    });
-    
-    document.getElementById('profitReportBtn')?.addEventListener('click', () => {
-        showProfitReport();
-    });
-    
-    document.getElementById('customReportBtn')?.addEventListener('click', () => { 
-        let startInput = document.getElementById('startDate').value;
-        let endInput = document.getElementById('endDate').value;
-        
-        if (!startInput || !endInput) {
-            showMsg('الرجاء إدخال التاريخين', true);
-            return;
-        }
-        
-        let startDate = new Date(startInput); 
-        startDate.setHours(0,0,0,0);
-        let endDate = new Date(endInput); 
-        endDate.setHours(23,59,59);
-        
-        if (startDate <= endDate) {
-            showReport(startDate, endDate, 'تقرير مخصص'); 
-        } else {
-            showMsg('تاريخ البداية يجب أن يكون قبل تاريخ النهاية', true); 
-        }
-    });
-    
-    document.getElementById('showAllInvoicesBtn')?.addEventListener('click', () => {
-        showAllInvoicesDebug();
-    });
+    container.innerHTML = `<h2>سجل الموردين</h2>${suppliers.length ? `<table><thead><tr><th>الاسم</th><th>الهاتف</th><th>العنوان</th></tr></thead><tbody>${suppliers.map(s => `<tr><td>${s.name}</td><td>${s.phone}</td><td>${s.address||'-'}</td></tr>`).join('')}</tbody></table>` : '<p>لا يوجد موردين</p>'}`;
+}
 
-    // ========== تصدير Excel ==========
-    document.getElementById('exportFinanceExcelBtn')?.addEventListener('click', () => {
-        let data = [
-            ['التقرير المالي الشامل - عجائب الرحمن'],
-            ['تاريخ التقرير:', new Date().toLocaleDateString('ar-EG')],
-            [],
-            ['ملخص الماليات'],
-            ['إجمالي المبيعات', totalSales.toLocaleString() + ' ج.م'],
-            ['إجمالي المشتريات', totalPurchases.toLocaleString() + ' ج.م'],
-            ['صافي التدفق النقدي', cashFlow.toLocaleString() + ' ج.م'],
-            ['قيمة المخزون (جملة)', stockValueWholesale.toLocaleString() + ' ج.م'],
-            ['قيمة المخزون (قطاعي)', stockValueRetail.toLocaleString() + ' ج.م'],
-            ['صافي الربح', netProfit.toLocaleString() + ' ج.م'],
-            [],
-            ['تفاصيل المنتجات'],
-            ['المنتج', 'المخزون', 'سعر الجملة', 'سعر القطاعي', 'قيمة المخزون (جملة)', 'قيمة المخزون (قطاعي)']
-        ];
-        
-        products.forEach(p => {
-            data.push([
-                p.name, 
-                p.stock, 
-                (p.priceWholesale || 0) + ' ج.م', 
-                (p.priceRetail || 0) + ' ج.م',
-                ((p.stock || 0) * (p.priceWholesale || 0)) + ' ج.م',
-                ((p.stock || 0) * (p.priceRetail || 0)) + ' ج.م'
-            ]);
-        });
-        
-        exportToExcel(data, 'تقرير_مالي_شامل', ['']);
-        showMsg('✅ تم تصدير التقرير المالي الشامل');
-    });
+function renderFinances(container) {
+    updateTotalStock();
+    let stockValueWholesale = products.reduce((s, p) => s + (p.priceWholesale||0) * (p.stock||0), 0);
+    let stockValueRetail = products.reduce((s, p) => s + (p.priceRetail||0) * (p.stock||0), 0);
+    let totalSales = invoices.filter(i => !i.isReturned).reduce((s, i) => s + (i.finalTotal||i.total||0), 0);
+    let totalPurchases = purchaseInvoices.reduce((s, i) => s + (i.total||0), 0);
     
-    // ========== ربط الأحداث ==========
-    document.getElementById('dailyReportBtn')?.addEventListener('click', () => { 
-        let today = new Date(); 
-        today.setHours(0,0,0,0); 
-        let tomorrow = new Date(today); 
-        tomorrow.setDate(tomorrow.getDate()+1); 
-        showReport(today, tomorrow, 'التقرير اليومي'); 
-    });
-    
-    document.getElementById('monthlyReportBtn')?.addEventListener('click', () => { 
-        let now = new Date(); 
-        let start = new Date(now.getFullYear(), now.getMonth(), 1); 
-        let end = new Date(now.getFullYear(), now.getMonth()+1, 0); 
-        end.setHours(23,59,59);
-        showReport(start, end, 'التقرير الشهري'); 
-    });
-    
-    document.getElementById('yearlyReportBtn')?.addEventListener('click', () => { 
-        let now = new Date(); 
-        let start = new Date(now.getFullYear(), 0, 1); 
-        let end = new Date(now.getFullYear(), 11, 31); 
-        end.setHours(23,59,59);
-        showReport(start, end, 'التقرير السنوي'); 
-    });
-    
-    document.getElementById('profitReportBtn')?.addEventListener('click', () => {
-        showProfitReport();
-    });
-    
-    document.getElementById('customReportBtn')?.addEventListener('click', () => { 
-        let startDate = new Date(document.getElementById('startDate').value); 
-        let endDate = new Date(document.getElementById('endDate').value); 
-        endDate.setHours(23,59,59); 
-        if (startDate && endDate && startDate <= endDate) {
-            showReport(startDate, endDate, 'تقرير مخصص'); 
-        } else {
-            showMsg('الرجاء إدخال تواريخ صحيحة', true); 
-        }
-    });
+    container.innerHTML = `<h2>💰 الماليات</h2>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px;">
+        <div style="background:#667eea; color:white; padding:20px; border-radius:15px;"><h4>المبيعات</h4><p style="font-size:2rem;">${totalSales.toLocaleString()} ج.م</p></div>
+        <div style="background:#f093fb; color:white; padding:20px; border-radius:15px;"><h4>المشتريات</h4><p style="font-size:2rem;">${totalPurchases.toLocaleString()} ج.م</p></div>
+        <div style="background:${totalSales-totalPurchases>=0?'#4facfe':'#fa709a'}; color:white; padding:20px; border-radius:15px;"><h4>الصافي</h4><p style="font-size:2rem;">${(totalSales-totalPurchases).toLocaleString()} ج.م</p></div>
+    </div>
+    <div style="margin-top:20px;"><h3>قيمة المخزون</h3><p>بسعر الجملة: ${stockValueWholesale.toLocaleString()} ج.م</p><p>بسعر القطاعي: ${stockValueRetail.toLocaleString()} ج.م</p></div>`;
+}
 
-    
-    // ========== تصدير Excel شامل ==========
-    document.getElementById('exportFinanceExcelBtn')?.addEventListener('click', () => {
-        let data = [
-            ['التقرير المالي الشامل - عجائب الرحمن', '', ''],
-            ['تاريخ التقرير:', new Date().toLocaleDateString('ar-EG'), ''],
-            ['', '', ''],
-            ['ملخص الماليات', '', ''],
-            ['إجمالي المبيعات', totalSales + ' ج.م', ''],
-            ['إجمالي المشتريات', totalPurchases + ' ج.م', ''],
-            ['صافي التدفق النقدي', cashFlow + ' ج.م', ''],
-            ['قيمة المخزون (جملة)', stockValueWholesale + ' ج.م', ''],
-            ['قيمة المخزون (قطاعي)', stockValueRetail + ' ج.م', ''],
-            ['صافي الربح', netProfit + ' ج.م', ''],
-            ['', '', ''],
-            ['تفاصيل المنتجات', '', ''],
-            ['المنتج', 'المخزون', 'سعر الجملة', 'سعر القطاعي', 'قيمة المخزون (جملة)', 'قيمة المخزون (قطاعي)']
-        ];
-        
-        products.forEach(p => {
-            data.push([
-                p.name, 
-                p.stock, 
-                p.priceWholesale + ' ج.م', 
-                p.priceRetail + ' ج.م',
-                (p.stock * p.priceWholesale) + ' ج.م',
-                (p.stock * p.priceRetail) + ' ج.م'
-            ]);
-        });
-        
-        exportToExcel(data, 'تقرير_مالي_شامل', ['']);
-        showMsg('✅ تم تصدير التقرير المالي الشامل');
-    });
-    
-    // ========== ربط الأحداث ==========
-    document.getElementById('dailyReportBtn')?.addEventListener('click', () => { 
-        let today = new Date(); 
-        today.setHours(0,0,0,0); 
-        let tomorrow = new Date(today); 
-        tomorrow.setDate(tomorrow.getDate()+1); 
-        showReport(today, tomorrow, 'التقرير اليومي'); 
-    });
-    
-    document.getElementById('monthlyReportBtn')?.addEventListener('click', () => { 
-        let now = new Date(); 
-        let start = new Date(now.getFullYear(), now.getMonth(), 1); 
-        let end = new Date(now.getFullYear(), now.getMonth()+1, 0); 
-        end.setHours(23,59,59);
-        showReport(start, end, 'التقرير الشهري'); 
-    });
-    
-    document.getElementById('yearlyReportBtn')?.addEventListener('click', () => { 
-        let now = new Date(); 
-        let start = new Date(now.getFullYear(), 0, 1); 
-        let end = new Date(now.getFullYear(), 11, 31); 
-        end.setHours(23,59,59);
-        showReport(start, end, 'التقرير السنوي'); 
-    });
-    
-    document.getElementById('profitReportBtn')?.addEventListener('click', () => {
-        showProfitReport();
-    });
-    
-    document.getElementById('customReportBtn')?.addEventListener('click', () => { 
-        let startDate = new Date(document.getElementById('startDate').value); 
-        let endDate = new Date(document.getElementById('endDate').value); 
-        endDate.setHours(23,59,59); 
-        if (startDate && endDate && startDate <= endDate) {
-            showReport(startDate, endDate, 'تقرير مخصص'); 
-        } else {
-            showMsg('الرجاء إدخال تواريخ صحيحة', true); 
-        }
-    });
-  }
 function renderInventory(container) {
     let totalIn = stockMovements.filter(m => m.type === 'إيداع').reduce((s, m) => s + m.quantity, 0);
     let totalOut = stockMovements.filter(m => m.type === 'سحب').reduce((s, m) => s + m.quantity, 0);
-    container.innerHTML = `<h2>حركة المخزون</h2><button class="primary" id="exportMovementsBtn">تصدير Excel</button><div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; margin:20px 0;"><div style="background:#e8f5e9; padding:15px; border-radius:10px; text-align:center;"><h3>إيداع</h3><p style="font-size:1.5rem;">${totalIn}</p></div><div style="background:#fff3e0; padding:15px; border-radius:10px; text-align:center;"><h3>سحب</h3><p style="font-size:1.5rem;">${totalOut}</p></div><div style="background:#e3f2fd; padding:15px; border-radius:10px; text-align:center;"><h3>صافي</h3><p style="font-size:1.5rem;">${totalIn - totalOut}</p></div></div><div>${stockMovements.length === 0 ? '<p>لا توجد حركة</p>' : `<table><thead><tr><th>التاريخ</th><th>النوع</th><th>المنتج</th><th>الكمية</th><th>المصدر/الوجهة</th><th>الفرع</th><th>المستخدم</th></tr></thead><tbody>${stockMovements.map(m => `<tr><td>${m.date}</td><td>${m.type}</td><td>${m.productName}</td><td>${m.quantity}</td><td>${m.source || m.destination || '-'}</td><td>${m.branch || 'الرئيسي'}</td><td>${m.recordedBy || '-'}</td></tr>`).join('')}</tbody></table>`}</div>`;
-    document.getElementById('exportMovementsBtn')?.addEventListener('click', () => { let data = stockMovements.map(m => [m.date, m.type, m.productName, m.quantity, m.source || m.destination || '-', m.branch || 'الرئيسي', m.recordedBy || '-']); exportToExcel(data, 'حركة_المخزون', ['التاريخ', 'النوع', 'المنتج', 'الكمية', 'المصدر/الوجهة', 'الفرع', 'المستخدم']); });
+    container.innerHTML = `<h2>حركة المخزون</h2><button class="primary" id="exportMovementsBtn">📊 تصدير Excel</button>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px;"><div style="background:#e8f5e9; padding:15px;"><h3>إيداع</h3><p>${totalIn}</p></div><div style="background:#fff3e0; padding:15px;"><h3>سحب</h3><p>${totalOut}</p></div><div style="background:#e3f2fd; padding:15px;"><h3>صافي</h3><p>${totalIn-totalOut}</p></div></div>
+    ${stockMovements.length ? `<table><thead><tr><th>التاريخ</th><th>النوع</th><th>المنتج</th><th>الكمية</th><th>تاريخ الصلاحية</th><th>المصدر</th></tr></thead><tbody>${stockMovements.map(m => `<tr><td>${m.date}</td><td>${m.type}</td><td>${m.productName}</td><td>${m.quantity}</td><td>${m.expiryDate||'-'}</td><td>${m.source||m.destination||'-'}</td></tr>`).join('')}</tbody></table>` : '<p>لا توجد حركة</p>'}`;
+    document.getElementById('exportMovementsBtn')?.addEventListener('click', () => exportToExcel(stockMovements.map(m => [m.date, m.type, m.productName, m.quantity, m.expiryDate||'-', m.source||m.destination||'-']), 'حركة_المخزون', ['التاريخ','النوع','المنتج','الكمية','الصلاحية','المصدر']));
 }
 
 function renderStockDistribution(container) {
-    container.innerHTML = `<h2>توزيع مخزون</h2><div class="grid-2"><div><select id="distBranch">${branches.map(b => `<option value="${b.id}">${b.name}</option>`).join('')}</select><select id="distProduct">${products.map(p => `<option value="${p.id}">${p.name} (المخزون: ${p.stock})</option>`).join('')}</select><input id="distQty" type="number" placeholder="الكمية" min="1"><input id="distDate" type="date" value="${new Date().toISOString().split('T')[0]}"><button class="primary" id="distributeBtn" style="width:100%;">تأكيد التوزيع</button></div><div><h3>معلومات التوزيع</h3><p>سيتم خصم الكمية من المخزون الرئيسي وإضافتها إلى سجل حركة المخزون</p></div></div>`;
+    container.innerHTML = `<h2>توزيع مخزون</h2><select id="distBranch">${branches.map(b => `<option value="${b.id}">${b.name}</option>`).join('')}</select><select id="distProduct">${products.map(p => `<option value="${p.id}">${p.name} (${p.stock||0})</option>`).join('')}</select><input id="distQty" type="number" placeholder="الكمية"><input id="distDate" type="date" value="${new Date().toISOString().split('T')[0]}"><button class="primary" id="distributeBtn">تأكيد</button>`;
     document.getElementById('distributeBtn')?.addEventListener('click', () => {
-        let branchId = +document.getElementById('distBranch').value, productId = +document.getElementById('distProduct').value, qty = +document.getElementById('distQty').value, date = document.getElementById('distDate').value;
-        let branch = branches.find(b => b.id === branchId), product = products.find(p => p.id === productId);
-        if (!qty || qty <= 0) { showMsg('أدخل كمية صحيحة', true); return; }
-        if (qty > product.stock) { showMsg('الكمية أكبر من المخزون', true); return; }
-        product.stock -= qty;
-        stockMovements.push({ id: genId(stockMovements), type: 'سحب', productId: product.id, productName: product.name, quantity: qty, destination: `توزيع - ${branch.name}`, date: date, recordedBy: currentUser?.fullName || '-', branch: branch.name });
-        saveAll(); checkProductAlerts();
-        showMsg(`✅ تم توزيع ${qty} قطعة من ${product.name} إلى ${branch.name}`);
+        let branch = branches.find(b => b.id === +document.getElementById('distBranch').value);
+        let product = products.find(p => p.id === +document.getElementById('distProduct').value);
+        let qty = +document.getElementById('distQty').value;
+        if (!qty || qty <= 0 || qty > (product.stock||0)) { showMsg('كمية غير صحيحة', true); return; }
+        deductStockFIFO(product.id, qty);
+        stockMovements.push({ id: genId(stockMovements), type: 'سحب', productId: product.id, productName: product.name, quantity: qty, destination: `توزيع - ${branch.name}`, date: document.getElementById('distDate').value, recordedBy: currentUser?.fullName || '-' });
+        saveAll();
+        showMsg(`✅ تم التوزيع`);
         renderStockDistribution(container);
     });
 }
@@ -2225,66 +1313,27 @@ function renderStockDistribution(container) {
 function renderNotes(container) {
     checkProductAlerts();
     let userNotes = notes.filter(n => n.to === 'all' || n.to === currentUser?.username || n.from === currentUser?.username);
-    let unreadCount = userNotes.filter(n => !n.read && (n.to === 'all' || n.to === currentUser?.username)).length;
-    container.innerHTML = `<h2>📝 الملحوظات والتنبيهات ${unreadCount > 0 ? `<span class="alert-badge">${unreadCount} جديدة</span>` : ''}</h2>
-    <div class="notes-container">
-        <div><h3>إرسال ملحوظة</h3><div style="background:#fefaf5; padding:20px; border-radius:15px;">
-            <select id="noteTo"><option value="all">الجميع</option>${users.filter(u => u.id !== currentUser?.id).map(u => `<option value="${u.username}">${u.fullName} (${u.role})</option>`).join('')}</select>
-            <input id="noteTitle" placeholder="العنوان"><textarea id="noteContent" placeholder="محتوى الملحوظة" rows="4"></textarea>
-            <button class="primary" id="sendNoteBtn" style="width:100%; margin-top:10px;"><i class="fas fa-paper-plane"></i> إرسال</button>
-        </div></div>
-        <div><h3>الملحوظات المستلمة</h3><div style="max-height:500px; overflow-y:auto;">
-            ${userNotes.length === 0 ? '<p>لا توجد ملحوظات</p>' : userNotes.sort((a,b) => new Date(b.date) - new Date(a.date)).map(n => `
-                <div class="note-card ${!n.read ? 'unread-note' : ''}" style="${!n.read ? 'border-right-color:#f39c12' : ''}">
-                    <div class="note-header"><strong>${n.title}</strong>${n.type === 'expiry_alert' || n.type === 'low_stock_alert' ? '<span class="alert-badge">تنبيه تلقائي</span>' : ''}${!n.read ? '<span class="alert-badge" style="background:#f39c12;">جديد</span>' : ''}</div>
-                    <p>${n.content}</p><small>من: ${n.from === 'system' ? 'النظام' : n.from}<br>التاريخ: ${new Date(n.date).toLocaleString('ar-EG')}<br>${n.productName ? `المنتج: ${n.productName}<br>` : ''}</small>
-                    <div style="margin-top:10px;">${!n.read ? `<button class="primary markReadBtn" data-id="${n.id}" style="padding:5px 15px;">✓ قرأتها</button>` : ''}<button class="danger deleteNoteBtn" data-id="${n.id}" style="padding:5px 15px;">🗑️ حذف</button></div>
-                </div>
-            `).join('')}
-        </div></div>
-    </div>`;
+    let unread = userNotes.filter(n => !n.read).length;
+    container.innerHTML = `<h2>📝 الملحوظات ${unread ? `<span class="alert-badge">${unread} جديدة</span>` : ''}</h2>
+    <div class="notes-container"><div><h3>إرسال</h3><select id="noteTo"><option value="all">الجميع</option>${users.filter(u => u.id !== currentUser?.id).map(u => `<option value="${u.username}">${u.fullName}</option>`).join('')}</select><input id="noteTitle" placeholder="العنوان"><textarea id="noteContent" placeholder="المحتوى"></textarea><button class="primary" id="sendNoteBtn">📨 إرسال</button></div>
+    <div>${userNotes.sort((a,b) => new Date(b.date) - new Date(a.date)).map(n => `<div class="note-card" style="${!n.read?'border-right-color:#f39c12':''}"><strong>${n.title}</strong> ${n.type?.includes('alert')?'🔔':''}<p>${n.content}</p><small>من: ${n.from||'النظام'}</small><div>${!n.read?`<button class="primary markReadBtn" data-id="${n.id}">✓ قرأت</button>`:''}<button class="danger deleteNoteBtn" data-id="${n.id}">🗑️</button></div></div>`).join('')}</div></div>`;
     
     document.getElementById('sendNoteBtn')?.addEventListener('click', () => {
         let to = document.getElementById('noteTo').value, title = document.getElementById('noteTitle').value, content = document.getElementById('noteContent').value;
-        if (!title || !content) { showMsg('العنوان والمحتوى مطلوبان', true); return; }
-        notes.push({ id: genId(notes), type: 'user_note', title, content, date: new Date().toISOString(), read: false, from: currentUser?.username || 'system', to });
-        saveAll(); showMsg('✅ تم إرسال الملحوظة'); renderNotes(container);
+        if (title && content) { notes.push({ id: genId(notes), type: 'user_note', title, content, date: new Date().toISOString(), read: false, from: currentUser?.username, to }); saveAll(); renderNotes(container); }
     });
-    
     container.addEventListener('click', (e) => {
-        let markBtn = e.target.closest('.markReadBtn');
-        if (markBtn) { let noteId = +markBtn.dataset.id, note = notes.find(n => n.id === noteId); if (note) { note.read = true; saveAll(); renderNotes(container); } }
-        let delBtn = e.target.closest('.deleteNoteBtn');
-        if (delBtn && confirm('حذف هذه الملحوظة؟')) { let noteId = +delBtn.dataset.id; notes = notes.filter(n => n.id !== noteId); saveAll(); renderNotes(container); }
+        let mark = e.target.closest('.markReadBtn'); if (mark) { let n = notes.find(n => n.id === +mark.dataset.id); if (n) { n.read = true; saveAll(); renderNotes(container); } }
+        let del = e.target.closest('.deleteNoteBtn'); if (del && confirm('حذف؟')) { notes = notes.filter(n => n.id !== +del.dataset.id); saveAll(); renderNotes(container); }
     });
 }
 
-// إضافة الفوتر
 function addFooter() {
-    const oldFooter = document.querySelector('.footer');
-    if (oldFooter) oldFooter.remove();
-    
+    const old = document.querySelector('.footer'); if (old) old.remove();
     const footer = document.createElement('footer');
     footer.className = 'footer';
-    footer.innerHTML = `
-        <div class="footer-content">
-            <div class="footer-copyright">
-                <span>جميع الحقوق محفوظة</span>
-                <i class="far fa-copyright"></i>
-                <span>${new Date().getFullYear()}</span>
-                <span class="highlight">عجائب الرحمن</span>
-                <span>|</span>
-                <span>تصميم وبرمجة</span>
-                <i class="fas fa-code"></i>
-                <span class="developer-name">Mo23</span>
-            </div>
-        </div>
-    `;
-    
-    const appContainer = document.querySelector('.app-container');
-    if (appContainer) {
-        appContainer.insertAdjacentElement('afterend', footer);
-    }
+    footer.innerHTML = `<div class="footer-content"><div class="footer-copyright"><span>© ${new Date().getFullYear()}</span> <span class="highlight">عجائب الرحمن</span> | <span class="developer-name">Mo23</span></div></div>`;
+    document.querySelector('.app-container')?.insertAdjacentElement('afterend', footer);
 }
 
 // بدء التشغيل
